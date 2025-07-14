@@ -6,7 +6,7 @@
 </head>
 <body>
   <h1>POC - Bullhorn Embedded Chat</h1>
-
+  <p>Running as Jen Can</p>
   <!-- Define the function FIRST -->
   <script type='text/javascript'>
     function initEmbeddedMessaging() {
@@ -32,6 +32,19 @@
     type='text/javascript' 
     src='https://bullhorn--uat.sandbox.my.site.com/ESWAgentforceEmbeddedDe1742299117809/assets/js/bootstrap.min.js' 
     onload='initEmbeddedMessaging()'>
+  </script>
+
+  <script>
+    window.addEventListener('onEmbeddedMessagingReady', () => {
+        embeddedservice_bootstrap.utilAPI.hideChatButton();
+    	if (embeddedservice_bootstrap && embeddedservice_bootstrap.prechatAPI) {
+        	embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
+            	"Prechat_UserId": "0053g000001Hkv7AAC"
+        	});
+    	} else {
+        	console.error("Embedded Messaging API not initialized or unavailable.");
+   		}
+	});
   </script>
 </body>
 </html>
