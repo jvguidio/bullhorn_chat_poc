@@ -1,0 +1,21 @@
+<html>
+<script type='text/javascript'>
+	function initEmbeddedMessaging() {
+		try {
+			embeddedservice_bootstrap.settings.language = 'en_US'; // For example, enter 'en' or 'en-US'
+
+			embeddedservice_bootstrap.init(
+				'00DU9000004ImTh',
+				'Agentforce_Embedded_Deployment',
+				'https://bullhorn--uat.sandbox.my.site.com/ESWAgentforceEmbeddedDe1742299117809',
+				{
+					scrt2URL: 'https://bullhorn--uat.sandbox.my.salesforce-scrt.com'
+				}
+			);
+		} catch (err) {
+			console.error('Error loading Embedded Messaging: ', err);
+		}
+	};
+</script>
+<script type='text/javascript' src='https://bullhorn--uat.sandbox.my.site.com/ESWAgentforceEmbeddedDe1742299117809/assets/js/bootstrap.min.js' onload='initEmbeddedMessaging()'></script>
+</html>
