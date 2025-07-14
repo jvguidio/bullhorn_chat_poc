@@ -5,8 +5,9 @@
   <meta charset="UTF-8">
 </head>
 <body>
-  <h1>Testing Salesforce Embedded Chat</h1>
+  <h1>POC - Bullhorn Embedded Chat</h1>
 
+  <!-- Define the function FIRST -->
   <script type='text/javascript'>
     function initEmbeddedMessaging() {
       try {
@@ -26,6 +27,11 @@
     }
   </script>
 
-  <script type='text/javascript' src='https://bullhorn--uat.sandbox.my.site.com/ESWAgentforceEmbeddedDe1742299117809/assets/js/bootstrap.min.js' onload='initEmbeddedMessaging()'></script>
+  <!-- Then load the Salesforce script and call the function -->
+  <script 
+    type='text/javascript' 
+    src='https://bullhorn--uat.sandbox.my.site.com/ESWAgentforceEmbeddedDe1742299117809/assets/js/bootstrap.min.js' 
+    onload='initEmbeddedMessaging()'>
+  </script>
 </body>
 </html>
