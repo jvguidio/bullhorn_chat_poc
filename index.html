@@ -12,14 +12,9 @@
     // ===========
     // POC ONLY ⚠️
     // ===========
-    // Paste a fresh access token from Postman here.
-    // (It will expire—see notes below.)
     const ACCESS_TOKEN = '00DU9000004ImTh!AQEAQKH6SbOHxEn.Aa4WnBKZm.hZWjzuEkWSKFSEwDpuxVBndtcKldB.o4wN0gqHd1R7RAZdVM5qlNBHDdVRTBhSfp9hVjqI';
-
-    // Your sandbox instance (not the login host)
     const SALESFORCE_INSTANCE_URL = 'https://bullhorn--uat.sandbox.my.salesforce.com';
 
-    // ---- Embedded Messaging init (unchanged) ----
     function initEmbeddedMessaging() {
       try {
         embeddedservice_bootstrap.settings.language = 'en_US';
@@ -34,7 +29,6 @@
       }
     }
 
-    // ---- Access check with hardcoded token ----
     async function checkAgentforceAndMaybeInit() {
       const externalId = 'BH_7066344';
       const endpointUrl = `${SALESFORCE_INSTANCE_URL}/services/apexrest/CheckAgentforceAccess/${externalId}`;
