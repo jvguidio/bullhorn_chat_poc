@@ -16,7 +16,7 @@
         // --- Salesforce OAuth Details
         const CONSUMER_KEY = '3MVG9EJ2FoGDnkgWnMosmLrBeJvNC8N8vLW2QewRF1CXa7AudE3Kh2vWt_gkmjCzNSU190f.wXXvBIi9D1k.R';
         const SALESFORCE_INSTANCE_URL = 'https://bullhorn--uat.sandbox.my.salesforce.com';
-        const OAUTH_CALLBACK_URL = 'https://bullhorn--uat.sandbox.my.salesforce.com/services/oauth2/success';
+        const OAUTH_CALLBACK_URL = window.location.origin + window.location.pathname;
 
         /**
          * @description This function initiates the Bullhorn Embedded Messaging chat.
