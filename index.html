@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>POC - Bullhorn Embedded Chat (Hardcoded Token)</title>
+  <title>POC - Bullhorn Embedded Chat (Serverless Token)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 </head>
 <body>
@@ -9,12 +9,10 @@
   <p>Running as Jen Can</p>
 
   <script type="text/javascript">
-    // ===========
-    // POC ONLY ⚠️
-    // ===========
-    const ACCESS_TOKEN = '00DU9000004ImTh!AQEAQKH6SbOHxEn.Aa4WnBKZm.hZWjzuEkWSKFSEwDpuxVBndtcKldB.o4wN0gqHd1R7RAZdVM5qlNBHDdVRTBhSfp9hVjqI';
+    const PROXY_URL = 'https://bullhorn-agentforce-proxy.vercel.app/api/check-agentforce';
+    const EXTERNAL_ID = 'BH_7066344';
     const SALESFORCE_INSTANCE_URL = 'https://bullhorn--uat.sandbox.my.salesforce.com';
-
+    
     function initEmbeddedMessaging() {
       try {
         embeddedservice_bootstrap.settings.language = 'en_US';
@@ -30,30 +28,20 @@
     }
 
     async function checkAgentforceAndMaybeInit() {
-      const externalId = 'BH_7066344';
-      const endpointUrl = `${SALESFORCE_INSTANCE_URL}/services/apexrest/CheckAgentforceAccess/${externalId}`;
-
       try {
-        const resp = await fetch(endpointUrl, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${ACCESS_TOKEN}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        const text = (await resp.text() || '').trim().toLowerCase();
-        const isAgentforce = text === 'true';
-
-        if (resp.status === 401) {
-          console.warn('Access token likely expired/invalid (401). Replace the token and retry.');
+        const url = `${PROXY_URL}?externalId=${encodeURIComponent(EXTERNAL_ID)}`;
+        const resp = await fetch(url, { method: 'GET' });
+        if (!resp.ok) {
+          const txt = await resp.text();
+          console.error('Proxy error:', resp.status, txt);
+          return;
         }
-
-        if (resp.ok && isAgentforce) {
+        const data = await resp.json();
+        if (data.allowed) {
           console.log('✅ Access OK. Initializing chat.');
           initEmbeddedMessaging();
         } else {
-          console.log(`🚫 Not initializing chat. status=${resp.status}, body="${text}"`);
+          console.log('🚫 Not initializing chat.', data);
         }
       } catch (e) {
         console.error('Access check failed:', e);
