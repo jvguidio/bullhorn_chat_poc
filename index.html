@@ -5,126 +5,122 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 </head>
 <body>
-    <h1>POC - Bullhorn Embedded Chat</h1>
-    <p>Running as Jen Can</p>
-    
-    <!-- Define the function FIRST -->
-    <script type='text/javascript'>
-        // WARNING: This client-side approach exposes the Consumer Key.
-        // For a production environment, we should handle this authentication securely
-        
-        // --- Salesforce OAuth Details
-        const CONSUMER_KEY = '3MVG9EJ2FoGDnkgWnMosmLrBeJvNC8N8vLW2QewRF1CXa7AudE3Kh2vWt_gkmjCzNSU190f.wXXvBIi9D1k.R';
-        const SALESFORCE_INSTANCE_URL = 'https://bullhorn--uat.sandbox.my.salesforce.com';
-        const OAUTH_CALLBACK_URL = window.location.origin + window.location.pathname;
+  <h1>POC - Bullhorn Embedded Chat</h1>
+  <p>Running as Jen Can</p>
 
-        /**
-         * @description This function initiates the Bullhorn Embedded Messaging chat.
-         * It should only be called if the user has been verified to have access.
-         */
-        function initEmbeddedMessaging() {
-            try {
-                embeddedservice_bootstrap.settings.language = 'en_US';
+  <script type="text/javascript">
+    // =========================
+    // 🚨 POC ONLY — INSECURE 🚨
+    // =========================
 
-                embeddedservice_bootstrap.init(
-                    '00DU9000004ImTh',
-                    'Agentforce_Embedded_Deployment',
-                    'https://bullhorn--uat.sandbox.my.site.com/ESWAgentforceEmbeddedDe1742299117809',
-                    {
-                        scrt2URL: 'https://bullhorn--uat.sandbox.my.salesforce-scrt.com'
-                    }
-                );
-            } catch (err) {
-                console.error('Error loading Embedded Messaging: ', err);
-            }
+    // --- Salesforce OAuth (Username-Password grant) ---
+    // Sandbox auth host for token requests
+    const AUTH_HOST = 'https://test.salesforce.com';
+
+    // Connected App (Consumer Key/Secret)
+    const CONSUMER_KEY = '3MVG9EJ2FoGDnkgWnMosmLrBeJvNC8N8vLW2QewRF1CXa7AudE3Kh2vWt_gkmjCzNSU190f.wXXvBIi9D1k.R';
+    const CONSUMER_SECRET = 'EBE3FB4E2E37E8EC92120573AAA81B6F7469D8E5264E6EA7A0BF3302AA42BD37'; // ⚠️ POC only
+
+    // Sandbox user creds (POC test user).
+    const SF_USERNAME = 'victor.guidio-lpl@bullhorn.com.uat';
+    const SF_PASSWORD = '1708s9zn';
+
+    const SALESFORCE_INSTANCE_URL = 'https://bullhorn--uat.sandbox.my.salesforce.com';
+
+    function initEmbeddedMessaging() {
+      try {
+        embeddedservice_bootstrap.settings.language = 'en_US';
+        embeddedservice_bootstrap.init(
+          '00DU9000004ImTh',
+          'Agentforce_Embedded_Deployment',
+          'https://bullhorn--uat.sandbox.my.site.com/ESWAgentforceEmbeddedDe1742299117809',
+          { scrt2URL: 'https://bullhorn--uat.sandbox.my.salesforce-scrt.com' }
+        );
+      } catch (err) {
+        console.error('Error loading Embedded Messaging: ', err);
+      }
+    }
+
+    // Get OAuth token via Username–Password grant (POC only)
+    async function getAccessTokenPOC() {
+      const body = new URLSearchParams({
+        grant_type: 'password',
+        client_id: CONSUMER_KEY,
+        client_secret: CONSUMER_SECRET,
+        username: SF_USERNAME,
+        password: SF_PASSWORD
+      });
+
+      const res = await fetch(`${AUTH_HOST}/services/oauth2/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Token request failed: ${res.status} ${text}`);
+      }
+        console.log('auth response ',res.json());
+      return res.json();
+    }
+
+    async function checkAgentforceAndMaybeInit(accessToken) {
+      const externalId = 'BH_7066344';
+      const endpointUrl = `${SALESFORCE_INSTANCE_URL}/services/apexrest/CheckAgentforceAccess/${externalId}`;
+
+      const resp = await fetch(endpointUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
         }
+      });
 
-        /**
-         * @description This is the main orchestration function. It handles the OAuth
-         * flow, checks if the user is an Agentforce user, and only then
-         * proceeds to initialize the chat.
-         */
-        async function checkAndInitChat() {
-            let accessToken = getAccessTokenFromUrlFragment();
+      // Endpoint returns plain text "true" or "false"
+      const isAgentforce = (await resp.text()).trim().toLowerCase() === 'true';
+      if (resp.ok && isAgentforce) {
+        console.log('✅ Access OK. Initializing chat.');
+        initEmbeddedMessaging();
+      } else {
+        console.log('🚫 No access or error. Chat not initialized.');
+      }
+    }
 
-            if (!accessToken) {
-                // If no token is in the URL, start the OAuth flow.
-                redirectToSalesforceLogin();
-                return;
-            }
+    // Orchestrate POC flow: fetch token silently, then check access, then maybe init chat
+    async function startPocFlow() {
+      try {
+        const tokenData = await getAccessTokenPOC();
+        console.log('Got token:', !!tokenData.access_token);
+        await checkAgentforceAndMaybeInit(tokenData.access_token);
+      } catch (e) {
+        console.error('POC flow failed:', e);
+      }
+    }
 
-            // We have a token, now check user permissions.
-            const externalId = 'BH_7066344';
-            const endpointUrl = `${SALESFORCE_INSTANCE_URL}/services/apexrest/CheckAgentforceAccess/${externalId}`;
-
-            console.log("Checking user permissions before initializing chat...");
-
-            try {
-                const response = await fetch(endpointUrl, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                const isAgentforce = (await response.text()).toLowerCase() === 'true';
-
-                if (response.ok && isAgentforce) {
-                    console.log('User has Agentforce access. Initializing chat.');
-                    initEmbeddedMessaging();
-                } else {
-                    console.log('User does not have Agentforce access or an error occurred. Chat will not be initialized.');
-                }
-            } catch (error) {
-                console.error('Error during access check:', error);
-            }
+    // Embedded Messaging Ready → set hidden pre-chat fields (unchanged)
+    window.addEventListener('onEmbeddedMessagingReady', () => {
+      try {
+        embeddedservice_bootstrap.utilAPI.hideChatButton();
+        if (embeddedservice_bootstrap && embeddedservice_bootstrap.prechatAPI) {
+          embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
+            "Prechat_UserId": "0053g000001Hkv7AAC",
+            "Integration_Id": "BH_7066344"
+          });
+        } else {
+          console.error("Embedded Messaging API not initialized or unavailable.");
         }
+      } catch (e) {
+        console.error('Error in onEmbeddedMessagingReady:', e);
+      }
+    });
+  </script>
 
-        /**
-         * @description Parses the URL fragment to extract the access token.
-         * @returns {string|null} The access token or null if not found.
-         */
-        function getAccessTokenFromUrlFragment() {
-            const urlFragment = window.location.hash.substring(1);
-            const params = new URLSearchParams(urlFragment);
-            return params.get('access_token');
-        }
-
-        /**
-         * @description Redirects the user to the Salesforce login page to start the OAuth flow.
-         */
-        function redirectToSalesforceLogin() {
-            const authUrl = `${SALESFORCE_INSTANCE_URL}/services/oauth2/authorize?` +
-                `response_type=token&` +
-                `client_id=${CONSUMER_KEY}&` +
-                `redirect_uri=${encodeURIComponent(OAUTH_CALLBACK_URL)}`;
-            
-            window.location.href = authUrl;
-        }
-
-    </script>
-
-    <!-- Then load the Salesforce script and call the new check function -->
-    <!-- The 'onload' event is modified to call our new function that includes the check -->
-    <script
-        type='text/javascript'
-        src='https://bullhorn--uat.sandbox.my.site.com/ESWAgentforceEmbeddedDe1742299117809/assets/js/bootstrap.min.js'
-        onload='checkAndInitChat()'>
-    </script>
-
-    <script>
-        window.addEventListener('onEmbeddedMessagingReady', () => {
-            embeddedservice_bootstrap.utilAPI.hideChatButton();
-            if (embeddedservice_bootstrap && embeddedservice_bootstrap.prechatAPI) {
-                embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
-                    "Prechat_UserId": "0053g000001Hkv7AAC",
-                    "Integration_Id": "BH_7066344"
-                });
-            } else {
-                console.error("Embedded Messaging API not initialized or unavailable.");
-            }
-        });
-    </script>
+  <!-- Load the Messaging bootstrap, then start the POC flow -->
+  <script
+    type="text/javascript"
+    src="https://bullhorn--uat.sandbox.my.site.com/ESWAgentforceEmbeddedDe1742299117809/assets/js/bootstrap.min.js"
+    onload="startPocFlow()">
+  </script>
 </body>
 </html>
