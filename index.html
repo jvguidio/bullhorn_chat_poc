@@ -12,7 +12,8 @@
     const PROXY_URL = 'https://bullhorn-agentforce-proxy.vercel.app/api/check-agentforce';
     const INTEGRATION_ID = 'BH_7066344';
     const SALESFORCE_INSTANCE_URL = 'https://bullhorn--uat.sandbox.my.salesforce.com';
-    
+    let AGENTFORCE_USER_ID = null;
+
     function initEmbeddedMessaging() {
       try {
         embeddedservice_bootstrap.settings.language = 'en_US';
@@ -28,25 +29,36 @@
     }
 
     async function checkAgentforceAndMaybeInit() {
-      try {
-        const url = `${PROXY_URL}?integrationId=${encodeURIComponent(INTEGRATION_ID)}`;
-        const resp = await fetch(url, { method: 'GET' });
-        if (!resp.ok) {
-          const txt = await resp.text();
-          console.error('Proxy error:', resp.status, txt);
-          return;
-        }
-        const data = await resp.json();
-        if (data.allowed) {
-          console.log('✅ Access OK. Initializing chat.');
-          initEmbeddedMessaging();
-        } else {
-          console.log('🚫 Not initializing chat.', data);
-        }
-      } catch (e) {
-        console.error('Access check failed:', e);
+    try {
+      const url = `${PROXY_URL}?integrationId=${encodeURIComponent(INTEGRATION_ID)}`;
+      const resp = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' } });
+
+      if (!resp.ok) {
+        const txt = await resp.text();
+        console.error('Proxy error:', resp.status, txt);
+        return;
       }
+
+      const data = await resp.json();
+
+      const allowed =
+        typeof data.allowed === 'boolean'
+          ? data.allowed
+          : (typeof data.isAgentforceUser === 'boolean' ? data.isAgentforceUser : false);
+
+      const userId = (data && 'userId' in data) ? (data.userId ?? null) : null;
+      AGENTFORCE_USER_ID = userId;
+
+      if (allowed) {
+        console.log('✅ Access OK. Initializing chat.', { userId });
+        initEmbeddedMessaging();
+      } else {
+        console.log('🚫 Not initializing chat.', data);
+      }
+    } catch (e) {
+      console.error('Access check failed:', e);
     }
+  }
 
     // Hide chat button & set hidden fields once Messaging is ready
     window.addEventListener('onEmbeddedMessagingReady', () => {
@@ -54,7 +66,8 @@
         embeddedservice_bootstrap.utilAPI.hideChatButton();
         if (embeddedservice_bootstrap && embeddedservice_bootstrap.prechatAPI) {
           embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
-            "Integration_Id": "BH_7066344"
+            "Integration_Id": INTEGRATION_ID,
+            "Prechat_UserId": AGENTFORCE_USER_ID
           });
         } else {
           console.error("Embedded Messaging API not initialized or unavailable.");
