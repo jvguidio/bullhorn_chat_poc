@@ -29,7 +29,7 @@
 
     async function checkAgentforceAndMaybeInit() {
       try {
-        const url = `${PROXY_URL}?externalId=${encodeURIComponent(INTEGRATION_ID)}`;
+        const url = `${PROXY_URL}?integrationId=${encodeURIComponent(INTEGRATION_ID)}`;
         const resp = await fetch(url, { method: 'GET' });
         if (!resp.ok) {
           const txt = await resp.text();
