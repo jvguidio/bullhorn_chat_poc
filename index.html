@@ -37,7 +37,7 @@
         if (cached) {
           const { ts, data } = JSON.parse(cached);
           if (Date.now() - ts < 60_000) {
-            console.log('♻️ Usando cache de autorização');
+            console.log('♻️ Using cache for auth');
             return handleAuthResponse(data);
           }
         }
