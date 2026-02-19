@@ -546,7 +546,7 @@
        for error handling — a plain try/catch only catches sync throws. */
     function trySendMessage(msg, attempt) {
       const MAX_RETRIES = 5;
-      const RETRY_MS    = 3000;
+      const RETRY_MS    = 1000;
 
       try {
         const result = embeddedservice_bootstrap.utilAPI.sendTextMessage(msg);
@@ -656,7 +656,7 @@
        ================================================================== */
 
     /* Bot sent its first message → chat is truly ready to receive user input.
-       If this fires BEFORE the 3 s timeout, the message is sent immediately
+       If this fires BEFORE the 1 s timeout, the message is sent immediately
        (fast-path). Otherwise the timeout handles it.                        */
     window.addEventListener('onEmbeddedMessagingFirstBotMessageSent', () => {
       console.log('Bot ready (first bot message received)');
