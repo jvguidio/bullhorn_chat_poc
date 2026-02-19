@@ -58,10 +58,10 @@
       border-radius: 24px;
       padding: 0 6px 0 16px;
       background: #fff;
-      cursor: pointer;
       transition: border-color 0.2s, box-shadow 0.2s;
     }
 
+    .fake-input-row:focus-within,
     .fake-input-row:hover {
       border-color: #0176d3;
       box-shadow: 0 0 0 3px rgba(1,118,211,0.15);
@@ -73,14 +73,18 @@
       flex-shrink: 0;
     }
 
-    .fake-placeholder {
+    .fake-input-field {
       flex: 1;
       font-size: 14px;
+      color: #181818;
+      border: none;
+      outline: none;
+      background: transparent;
+      height: 100%;
+    }
+
+    .fake-input-field::placeholder {
       color: #6b7280;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      user-select: none;
     }
 
     .fake-send-btn {
@@ -339,13 +343,13 @@
     <div id="idleOverlay">
       <div class="fake-input-row" id="fakeInputRow">
         <span class="sparkle-icon">&#10024;</span>
-        <span class="fake-placeholder">Ask a question or request help&hellip;</span>
-        <button class="fake-send-btn" aria-label="Send">&#10148;</button>
+        <input type="text" class="fake-input-field" id="fakeInput" placeholder="Ask a question or request help…" autocomplete="off">
+        <button class="fake-send-btn" id="fakeSendBtn" aria-label="Send">&#10148;</button>
       </div>
       <div class="suggestion-chips">
-        <span class="chip" data-text="Connect me to a representative">Connect me to a representative</span>
-        <span class="chip" data-text="Show me a demo of Agentforce">Show me a demo of Agentforce</span>
-        <span class="chip" data-text="How can Agentforce help me?">How can Agentforce help me?</span>
+        <span class="chip" data-text="How to clear browser cache">How to clear browser cache</span>
+        <span class="chip" data-text="How to reset my ATS user password">How to reset my ATS user password</span>
+        <span class="chip" data-text="Connect me to a human">Connect me to a human</span>
       </div>
     </div>
 
@@ -406,15 +410,36 @@
     /* ==================================================================
        IDLE BAR INTERACTIONS
        ================================================================== */
-    document.getElementById('fakeInputRow').addEventListener('click', () => {
+    const fakeInput   = document.getElementById('fakeInput');
+    const fakeSendBtn = document.getElementById('fakeSendBtn');
+
+    // Only expand when user presses Enter or clicks Send (not on focus/click)
+    function submitIdleInput() {
+      const text = fakeInput.value.trim();
+      if (!text) return;               // ignore empty
+      fakeInput.value = '';
       setChatState('expanded');
+      // TODO: if Embedded Messaging API supports sending a message
+      // programmatically, send `text` here.
+    }
+
+    fakeInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitIdleInput();
+      }
+    });
+
+    fakeSendBtn.addEventListener('click', (e) => {
+      e.stopPropagation();             // don't bubble to row
+      submitIdleInput();
     });
 
     document.querySelectorAll('.chip').forEach(chip => {
       chip.addEventListener('click', () => {
         setChatState('expanded');
-        // Note: you can use the chip text to pre-fill a message via the
-        // Embedded Messaging API if available in the future.
+        // TODO: if Embedded Messaging API supports sending a message
+        // programmatically, send the chip's data-text here.
       });
     });
 
