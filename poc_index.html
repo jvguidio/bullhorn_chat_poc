@@ -508,8 +508,10 @@
 
     /* Schedule the pending message to be sent.
        If the botReady event already fired, send immediately.
-       Otherwise wait 3 s (same strategy as the InfallibleTechie blog)
-       so the conversation has time to fully initialise.                */
+       Otherwise WAIT for the onEmbeddedMessagingFirstBotMessageSent event
+       (which sets botReady and calls flushPendingMessage).
+       A long safety-net timeout (15 s) catches edge cases where the
+       event never fires.                                                  */
     function schedulePendingMessageSend() {
       if (!pendingMessage || sendScheduled) return;
       sendScheduled = true;
@@ -518,13 +520,13 @@
         // Bot already greeted — send right away
         flushPendingMessage();
       } else {
-        // Wait a short fixed delay (blog uses 3 s)
+        // Safety-net: if botReady event never fires, flush after 15 s
         setTimeout(() => {
           if (pendingMessage) {
-            console.log('3 s timeout reached — flushing pending message');
+            console.log('15 s safety-net timeout reached — flushing pending message');
             flushPendingMessage();
           }
-        }, 3000);
+        }, 15000);
       }
     }
 
