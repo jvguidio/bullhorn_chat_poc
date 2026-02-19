@@ -437,9 +437,15 @@
         console.error('launchChat() failed:', e);
       }
 
-      // Fallback: if onEmbeddedMessagingFirstBotMessageSent hasn't fired
-      // within 3 seconds, attempt to send the message anyway (retry-safe).
-      setTimeout(() => flushPendingMessage(), 3000);
+      // The message will be sent when onEmbeddedMessagingFirstBotMessageSent
+      // fires (i.e. after the bot greeting arrives and the chat is truly ready).
+      // Safety-net: if that event never fires, try after 10 s.
+      setTimeout(() => {
+        if (pendingMessage) {
+          console.warn('Bot-ready event did not fire within 10 s – attempting send anyway');
+          flushPendingMessage();
+        }
+      }, 10000);
     }
 
     /* Try to send the pending message to the agent */
