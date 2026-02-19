@@ -1,256 +1,722 @@
+<!DOCTYPE html>
 <html lang="en">
 <head>
+  <title>POC - Bullhorn Embedded Chat (Serverless Token)</title>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chat Input Example</title>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
   <style>
+    /* ===== RESET / BASE ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      font-family: Arial, sans-serif;
-      background-color: #f7f8fa;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
+      font-family: 'Salesforce Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f4f6f9;
+      color: #181818;
+      padding-bottom: 90px; /* room for the bottom bar */
     }
 
-    .chat-container {
-      background: #fff;
-      border: 1px solid #ddd;
-      border-radius: 10px;
-      width: 400px;
-      padding: 16px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    /* ===================================================================
+       BOTTOM BAR  (visible in idle + minimized states)
+       =================================================================== */
+    #agentforceBottomBar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      z-index: 9998;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+
+    /* hide bottom bar when expanded */
+    body.chat-expanded #agentforceBottomBar {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(100%);
+    }
+
+    /* ---------- IDLE OVERLAY ---------- */
+    #idleOverlay {
       display: flex;
       flex-direction: column;
+      align-items: center;
+      background: #ffffff;
+      border-top: 1px solid #e5e7eb;
+      box-shadow: 0 -4px 16px rgba(0,0,0,0.06);
+      padding: 14px 16px 16px;
+      gap: 10px;
     }
 
-    .chat-input-area {
+    body.chat-minimized #idleOverlay { display: none; }
+
+    .fake-input-row {
       display: flex;
-      border: 1px solid #ccc;
-      border-radius: 20px;
-      padding: 8px 12px;
-      background: #f1f1f1;
+      align-items: center;
+      width: 720px;
+      max-width: 95%;
+      height: 48px;
+      border: 1.5px solid #d8dde6;
+      border-radius: 24px;
+      padding: 0 6px 0 16px;
+      background: #fff;
+      cursor: text;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
 
-    .chat-input {
+    .fake-input-row:hover, .fake-input-row:focus-within {
+      border-color: #0176d3;
+      box-shadow: 0 0 0 3px rgba(1,118,211,0.15);
+    }
+
+    .sparkle-icon {
+      font-size: 18px;
+      margin-right: 10px;
+      flex-shrink: 0;
+    }
+
+    .fake-input-field {
       flex: 1;
+      font-size: 14px;
+      color: #181818;
       border: none;
-      background: transparent;
       outline: none;
-      font-size: 16px;
-      padding: 6px;
+      background: transparent;
+      height: 100%;
     }
 
-    .send-button {
-      background-color: #0078ff;
-      border: none;
-      color: white;
-      border-radius: 50%;
+    .fake-input-field::placeholder {
+      color: #6b7280;
+    }
+
+    .fake-send-btn {
       width: 36px;
       height: 36px;
-      cursor: pointer;
+      border-radius: 50%;
+      border: none;
+      background: #0176d3;
+      color: #fff;
       font-size: 16px;
       display: flex;
       align-items: center;
       justify-content: center;
+      flex-shrink: 0;
+      cursor: pointer;
       transition: background 0.2s;
     }
 
-    .send-button:hover {
-      background-color: #005fd1;
+    .fake-send-btn:hover { background: #014486; }
+
+    /* suggestion chips */
+    .suggestion-chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 720px;
     }
 
-    /* --- CSS for Styling the Button --- */
-    .send-message-button {
-      /* Background and Dimensions */
-      background-color: #00008b; /* A deep blue, similar to the image */
-      color: white; /* White text */
-      padding: 15px 30px; /* Padding for height and width */
-      font-size: 18px; /* Readable text size */
-      font-weight: bold;
-      cursor: pointer; /* Changes mouse to a pointer on hover */
-      border: none; /* Remove default button border */
-      display: inline-block; /* Allows setting padding/margin */
-      text-align: center;
-      border-radius: 5px; /* Slight rounding of corners */
-  
-      /* The White Border/Outline Effect */
-      box-shadow: 0 0 0 2px white; /* A 2px white "stroke" */
-      outline: 2px solid #00008b; /* Helps create the gap/depth effect */
+    .chip {
+      padding: 6px 16px;
+      border: 1.5px solid #0176d3;
+      border-radius: 20px;
+      font-size: 13px;
+      color: #0176d3;
+      background: #fff;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, color 0.15s;
+      user-select: none;
     }
-  
-    .send-message-button:hover {
-      background-color: #0000a0; /* Slightly lighter blue on hover */
+
+    .chip:hover {
+      background: #0176d3;
+      color: #fff;
+    }
+
+    /* ---------- MINIMIZED OVERLAY ---------- */
+    #minimizedOverlay {
+      display: none;
+    }
+
+    body.chat-minimized #minimizedOverlay {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .minimized-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #0176d3 0%, #014486 100%);
+      color: #fff;
+      border-radius: 12px 12px 0 0;
+      font-size: 15px;
+      font-weight: 600;
+      box-shadow: 0 -4px 16px rgba(0,0,0,0.10);
+      transition: background 0.2s;
+    }
+
+    .minimized-bar:hover {
+      background: linear-gradient(135deg, #0b8aed 0%, #0176d3 100%);
+    }
+
+    .minimized-bar .agent-icon {
+      width: 28px;
+      height: 28px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .minimized-bar .return-text {
+      flex: 1;
+    }
+
+    .minimized-bar .return-arrow {
+      font-size: 20px;
+    }
+
+    /* ===================================================================
+       MODAL BACKDROP + MODAL  (visible only in expanded state)
+       Using visibility instead of display so the iframe keeps rendering
+       =================================================================== */
+    #chatBackdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(0,0,0,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      /* hidden by default but still rendered */
+      visibility: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease, visibility 0.25s ease;
+    }
+
+    body.chat-expanded #chatBackdrop {
+      visibility: visible;
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    #chatModal {
+      display: flex;
+      flex-direction: column;
+      width: 760px;
+      max-width: 95vw;
+      height: 620px;
+      max-height: 90vh;
+      background: #fff;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      animation: slideUp 0.25s ease;
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(40px); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+
+    /* ---------- CHAT HEADER ---------- */
+    #chatHeader {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      height: 48px;
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
+      flex-shrink: 0;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #181818;
+    }
+
+    .header-left .info-icon {
+      width: 18px;
+      height: 18px;
+      border: 1.5px solid #9ca3af;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: #9ca3af;
+      cursor: pointer;
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .header-controls button {
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: transparent;
+      border-radius: 6px;
+      font-size: 16px;
+      color: #6b7280;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .header-controls button:hover {
+      background: #f3f4f6;
+      color: #181818;
+    }
+
+    /* ---------- INLINE CHAT TARGET ---------- */
+    #agentforceInline {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* force the Salesforce iframe to fill the container */
+    #agentforceInline iframe {
+      width: 100% !important;
+      height: 100% !important;
+      border: none !important;
+    }
+
+    /* ===================================================================
+       PAGE CONTENT (demo placeholder)
+       =================================================================== */
+    .page-content {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+
+    .page-content h1 {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    .page-content p {
+      font-size: 15px;
+      color: #6b7280;
+    }
+
+    /* ===================================================================
+       BODY OVERFLOW LOCK
+       =================================================================== */
+    body.chat-expanded {
+      overflow: hidden;
     }
   </style>
-
-  <script type="text/javascript">
-    function initEmbeddedMessaging() {
-      try {
-        embeddedservice_bootstrap.settings.language = 'en_US'; // For example, enter 'en' or 'en-US'
-
-        // Hiding Chat Button on page load
-        embeddedservice_bootstrap.settings.hideChatButtonOnLoad = true;
-
-        /* START:: Conversation Opened Listener */
-        window.addEventListener("onEmbeddedMessagingConversationOpened", (event) => {
-          hideChatContainer();
-        });
-        /* END:: Conversation Opened Listener */
-
-        /* START:: Conversation Closed Listener */
-        window.addEventListener("onEmbeddedMessagingWindowClosed", (event) => {
-          showChatContainer();
-        });
-        /* END:: Conversation Closed Listener */
-
-        /* START:: Button Created Listener */
-        window.addEventListener("onEmbeddedMessagingButtonCreated", (event) => {
-          showChatContainer();
-        });
-        /* END:: Button Created Listener */
-
-        embeddedservice_bootstrap.init(
-          '00DU9000004ImTh',
-          'Agentforce_Embedded_Deployment_Enhanced_v2',
-          'https://bullhorn--uat.sandbox.my.site.com/ESWAgentforceEmbeddedDe1771534884280',
-          {
-            scrt2URL: 'https://bullhorn--uat.sandbox.my.salesforce-scrt.com'
-          }
-        );
-      } catch (err) {
-        console.error('Error loading Embedded Messaging: ', err);
-      }
-    }
-  </script>
-
-  <script 
-    type="text/javascript" 
-    src="https://bullhorn--uat.sandbox.my.site.com/ESWAgentforceEmbeddedDe1771534884280/assets/js/bootstrap.min.js" 
-    onload="initEmbeddedMessaging()">
-  </script>
 </head>
+<body class="chat-idle">
 
-<body>
-  <div class="chat-container">
-    <div>
-      Welcome to our Chat!!!
-      <br /><br /><br />
+  <!-- ============ PAGE CONTENT (demo) ============ -->
+  <div class="page-content">
+    <h1>POC - Bullhorn Embedded Chat</h1>
+    <p>Running as Jen Can</p>
+  </div>
+
+  <!-- ============ BOTTOM BAR (idle + minimized) ============ -->
+  <div id="agentforceBottomBar">
+
+    <!-- IDLE: fake input + suggestion chips -->
+    <div id="idleOverlay">
+      <div class="fake-input-row" id="fakeInputRow">
+        <span class="sparkle-icon">&#10024;</span>
+        <input type="text" class="fake-input-field" id="fakeInput"
+               placeholder="Ask a question or request help…" autocomplete="off">
+        <button class="fake-send-btn" id="fakeSendBtn" aria-label="Send">&#10148;</button>
+      </div>
+      <div class="suggestion-chips">
+        <span class="chip" data-text="How to clear browser cache">How to clear browser cache</span>
+        <span class="chip" data-text="How to reset my ATS user password">How to reset my ATS user password</span>
+        <span class="chip" data-text="Connect me to a human">Connect me to a human</span>
+      </div>
     </div>
 
-    <div class="chat-input-area">
-      <input 
-        type="text" 
-        id="chatInput" 
-        class="chat-input" 
-        placeholder="Type a message..." 
-      />
-      <button class="send-button" id="sendBtn">➤</button>
-    </div>
-
-    <div>
-      <br/><br/>
-      <button class="send-message-button" id="orderButton">
-        Need help with my Order
-      </button>
-      <br/><br/>
-      <button class="send-message-button" id="caseButton">
-        Need help with my Case
-      </button>
+    <!-- MINIMIZED: return bar -->
+    <div id="minimizedOverlay">
+      <div class="minimized-bar" id="returnBar">
+        <span class="agent-icon">&#129302;</span>
+        <span class="return-text">Return to Agentforce</span>
+        <span class="return-arrow">&rarr;</span>
+      </div>
     </div>
   </div>
 
-  <script>
-    function showChatContainer() {
-      const chatContainer = document.querySelector('.chat-container');
-      chatContainer.style.display = 'block';
-    }
+  <!-- ============ MODAL (expanded) ============ -->
+  <div id="chatBackdrop">
+    <div id="chatModal">
+      <div id="chatHeader">
+        <div class="header-left">
+          <span>Agentforce</span>
+          <span class="info-icon" title="About Agentforce">i</span>
+        </div>
+        <div class="header-controls">
+          <button id="minimizeChat" title="Minimize">&#8722;</button>
+          <button id="closeChat" title="Close">&times;</button>
+        </div>
+      </div>
+      <!-- Agentforce inline iframe target -->
+      <div id="agentforceInline"></div>
+    </div>
+  </div>
 
-    function hideChatContainer() {
-      const chatContainer = document.querySelector('.chat-container');
-      chatContainer.style.display = 'none';
-    }
+  <!-- ============ JAVASCRIPT ============ -->
+  <script type="text/javascript">
+    /* ---- Config ---- */
+    const PROXY_URL  = 'https://bullhorn-agentforce-proxy.vercel.app/api/check-agentforce';
+    const INTEGRATION_ID = 'BH_7440523';
+    const SALESFORCE_INSTANCE_URL = 'https://bullhorn--uat.sandbox.my.salesforce.com';
+    let AGENTFORCE_USER_ID = null;
 
-    function launchChat() {
-      embeddedservice_bootstrap.utilAPI.launchChat()
-          .then(() => {
-            console.log('Successfully launched Messaging');
-          })
-          .catch(() => {
-            console.log('Some error occurred when launching Messaging');
-          })
-          .finally(() => {
-            console.log('Successfully launched Messaging - Finally');
-          });
-    }
+    /* ==================================================================
+       STATE MACHINE
+       ================================================================== */
+    let chatState       = 'idle';     // 'idle' | 'expanded' | 'minimized'
+    let conversationActive = false;   // tracks if a conversation is in progress
+    let chatInitialized = false;      // true after initEmbeddedMessaging() is called
+    let userAllowed     = false;      // true after auth/proxy says user can chat
+    let pendingMessage  = null;       // message to auto-send once bot is ready
+    let pendingLaunch   = false;      // true if user sent a message before bootstrap was ready
+    let bootstrapReady  = false;      // true after onEmbeddedMessagingButtonCreated fires
+    let messagingReady  = false;      // true after onEmbeddedMessagingReady fires
+    let botReady        = false;      // true after first bot message event fires
 
-    function sendMessageToChat(message) {
-      setTimeout(() => {
-          embeddedservice_bootstrap.utilAPI.sendTextMessage(message)
-            .then(() => {
-              console.log("Message sent");
-            })
-            .catch(() => {
-              console.log("Message not sent");
-            })
-            .finally(() => {
-              console.log("Message sent - finally");
-            });
-        }, 3000);
-    }
+    function setChatState(newState) {
+      chatState = newState;
+      document.body.classList.remove('chat-idle', 'chat-expanded', 'chat-minimized');
+      document.body.classList.add('chat-' + newState);
 
-    const sendBtn = document.getElementById('sendBtn');
-    const chatInput = document.getElementById('chatInput');
-
-    sendBtn.addEventListener('click', () => {
-      const message = chatInput.value.trim();
-      if (message) {
-        console.log(message);
-        chatInput.value = '';
-        hideChatContainer();
-
-        launchChat();
-
-        sendMessageToChat(message);
+      if (newState === 'expanded') {
+        document.body.style.overflow = 'hidden';
       } else {
-        alert("Please enter a message first!");
+        document.body.style.overflow = '';
       }
-    });
+    }
 
-    // Allow pressing Enter to send the message
-    chatInput.addEventListener('keypress', (e) => {
+    /* ==================================================================
+       OPEN CHAT WITH A MESSAGE
+       - Waits for bootstrapReady before calling launchChat()
+       - Stores the message as pending and sends it once the bot is ready
+       ================================================================== */
+    function openChatWithMessage(text) {
+      if (!userAllowed) {
+        console.warn('User not allowed for Agentforce chat.');
+        return;
+      }
+
+      pendingMessage = text;
+      setChatState('expanded');
+
+      if (bootstrapReady) {
+        // Bootstrap is ready — we can call launchChat() now
+        doLaunchChat();
+      } else {
+        // Bootstrap hasn't finished yet — queue the launch
+        pendingLaunch = true;
+        console.log('Bootstrap not ready yet — launch queued.');
+      }
+    }
+
+    /* Actually call launchChat() + set up the safety-net timeout */
+    function doLaunchChat() {
+      try {
+        console.log('Launching chat…');
+        embeddedservice_bootstrap.utilAPI.launchChat();
+      } catch (e) {
+        console.error('launchChat() failed:', e);
+      }
+
+      // The message will be sent when onEmbeddedMessagingFirstBotMessageSent
+      // fires (i.e. after the bot greeting arrives and the chat is truly ready).
+      // Safety-net: if that event never fires, try after 10 s.
+      setTimeout(() => {
+        if (pendingMessage) {
+          console.warn('Bot-ready event did not fire within 10 s — attempting send anyway');
+          flushPendingMessage();
+        }
+      }, 10000);
+    }
+
+    /* Try to send the pending message to the agent */
+    function flushPendingMessage() {
+      if (!pendingMessage) return;
+      const msg = pendingMessage;
+      pendingMessage = null;
+
+      console.log('Attempting to send message:', msg);
+      trySendMessage(msg, 0);
+    }
+
+    /* Retry-aware wrapper around sendTextMessage */
+    function trySendMessage(msg, attempt) {
+      const MAX_RETRIES = 6;
+      const RETRY_MS    = 2000;
+
+      try {
+        embeddedservice_bootstrap.utilAPI.sendTextMessage(msg);
+        console.log('Message sent successfully:', msg);
+      } catch (e) {
+        console.warn('sendTextMessage attempt', attempt + 1, 'failed:', e.message);
+        if (attempt < MAX_RETRIES) {
+          setTimeout(() => trySendMessage(msg, attempt + 1), RETRY_MS);
+        } else {
+          console.error('Could not send message after', MAX_RETRIES, 'retries.');
+        }
+      }
+    }
+
+    /* ==================================================================
+       IDLE BAR INTERACTIONS
+       ================================================================== */
+    const fakeInput   = document.getElementById('fakeInput');
+    const fakeSendBtn = document.getElementById('fakeSendBtn');
+
+    function submitIdleInput() {
+      const text = fakeInput.value.trim();
+      if (!text) return;
+      fakeInput.value = '';
+      openChatWithMessage(text);
+    }
+
+    fakeInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
-        sendBtn.click();
+        e.preventDefault();
+        submitIdleInput();
       }
     });
 
-    // Get the button element using its ID
-    const orderButton = document.getElementById('orderButton');
-    // Add an event listener that runs a function when the button is clicked
-    orderButton.addEventListener('click', function() {
-      // Get the text content of the button
-      const orderButtonText = orderButton.textContent.trim();
-      
-      // Display the text in the browser's console
-      console.log(orderButtonText);
-      launchChat();
-      sendMessageToChat(orderButtonText);
+    fakeSendBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      submitIdleInput();
     });
 
-    // Get the button element using its ID
-    const caseButton = document.getElementById('caseButton');
-    // Add an event listener that runs a function when the button is clicked
-    caseButton.addEventListener('click', function() {
-      // Get the text content of the button
-      const caseButtonText = caseButton.textContent.trim();
-      
-      // Display the text in the browser's console
-      console.log(caseButtonText);
-      launchChat();
-      sendMessageToChat(caseButtonText);
+    /* Suggestion chips */
+    document.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const text = chip.getAttribute('data-text');
+        if (text) {
+          openChatWithMessage(text);
+        }
+      });
     });
+
+    /* ==================================================================
+       MINIMIZED BAR INTERACTION
+       ================================================================== */
+    document.getElementById('returnBar').addEventListener('click', () => {
+      setChatState('expanded');
+    });
+
+    /* ==================================================================
+       MODAL HEADER CONTROLS
+       ================================================================== */
+    document.getElementById('minimizeChat').addEventListener('click', () => {
+      setChatState('minimized');
+    });
+
+    document.getElementById('closeChat').addEventListener('click', async () => {
+      try {
+        if (conversationActive) {
+          await embeddedservice_bootstrap.utilAPI.endConversation();
+        }
+      } catch (e) {
+        console.error('Error ending conversation:', e);
+      }
+      conversationActive = false;
+      botReady = false;
+      setChatState('idle');
+      sessionStorage.removeItem('agentforce:' + INTEGRATION_ID);
+    });
+
+    /* Close modal when clicking backdrop (outside the modal box) */
+    document.getElementById('chatBackdrop').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) {
+        if (conversationActive) {
+          setChatState('minimized');
+        } else {
+          setChatState('idle');
+        }
+      }
+    });
+
+    /* ==================================================================
+       EMBEDDED MESSAGING EVENTS
+       ================================================================== */
+
+    /* Bot sent its first message → chat is truly ready to receive user input */
+    window.addEventListener('onEmbeddedMessagingFirstBotMessageSent', () => {
+      console.log('Bot ready (first bot message received)');
+      botReady = true;
+      // If we have a pending message queued, send it now
+      flushPendingMessage();
+    });
+
+    window.addEventListener('onEmbeddedMessagingConversationStarted', () => {
+      console.log('Conversation started');
+      conversationActive = true;
+      if (chatState !== 'expanded') {
+        setChatState('expanded');
+      }
+    });
+
+    window.addEventListener('onEmbeddedMessagingConversationClosed', () => {
+      console.log('Conversation closed');
+      conversationActive = false;
+      botReady = false;
+      setChatState('idle');
+    });
+
+    window.addEventListener('onEmbeddedMessagingReady', () => {
+      console.log('Embedded Messaging is ready (sendTextMessage now available)');
+      messagingReady = true;
+      try {
+        if (embeddedservice_bootstrap?.prechatAPI) {
+          embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
+            "Integration_Id": INTEGRATION_ID,
+            "Prechat_UserId": AGENTFORCE_USER_ID
+          });
+        }
+      } catch (e) {
+        console.error('Error in onEmbeddedMessagingReady:', e);
+      }
+    });
+
+    /* Bootstrap widget created — launchChat() is now available */
+    window.addEventListener('onEmbeddedMessagingButtonCreated', () => {
+      console.log('Embedded Messaging button/widget created (bootstrap ready)');
+      bootstrapReady = true;
+
+      // If the user already tried to send a message before bootstrap was ready,
+      // launch the chat now.
+      if (pendingLaunch) {
+        pendingLaunch = false;
+        doLaunchChat();
+      }
+    });
+
+    /* Chat window closed (e.g. user clicked X inside the Salesforce widget) */
+    window.addEventListener('onEmbeddedMessagingWindowClose', () => {
+      console.log('Embedded Messaging window closed');
+      // Show the idle bar again so the user can start a new conversation
+      if (chatState === 'expanded') {
+        setChatState('idle');
+      }
+    });
+
+    /* ==================================================================
+       INIT EMBEDDED MESSAGING  (inline mode v2)
+       Called eagerly after auth succeeds. The iframe renders inside the
+       hidden modal so it is invisible until the user sends a message.
+       ================================================================== */
+    function initEmbeddedMessaging() {
+      try {
+        embeddedservice_bootstrap.settings.language = 'en_US';
+        embeddedservice_bootstrap.settings.hideChatButtonOnLoad = true;
+        embeddedservice_bootstrap.settings.displayMode = 'inline';
+        embeddedservice_bootstrap.settings.targetElement =
+          document.getElementById('agentforceInline');
+
+        embeddedservice_bootstrap.init(
+          '00DU9000004ImTh',
+          'Agentforce_Embedded_Deployment',
+          'https://bullhorn--uat.sandbox.my.site.com/ESWAgentforceEmbeddedDe1742299117809',
+          { scrt2URL: 'https://bullhorn--uat.sandbox.my.salesforce-scrt.com' }
+        );
+
+        console.log('Embedded Messaging initialized (inline mode)');
+      } catch (err) {
+        console.error('Error loading Embedded Messaging:', err);
+      }
+    }
+
+    /* ==================================================================
+       AUTH / PROXY CHECK
+       Runs on page load. Sets userAllowed = true and eagerly
+       initializes Embedded Messaging so it is ready when the user
+       sends their first message.
+       ================================================================== */
+    async function checkAgentforceAndMaybeInit() {
+      try {
+        const cacheKey = 'agentforce:' + INTEGRATION_ID;
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          const { ts, data } = JSON.parse(cached);
+          if (Date.now() - ts < 60000) {
+            console.log('Using cache for auth');
+            return handleAuthResponse(data);
+          }
+        }
+
+        const url = PROXY_URL + '?integrationId=' + encodeURIComponent(INTEGRATION_ID);
+        const resp = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' } });
+
+        if (!resp.ok) {
+          const txt = await resp.text();
+          console.error('Proxy error:', resp.status, txt);
+          return;
+        }
+
+        const data = await resp.json();
+        sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data }));
+        handleAuthResponse(data);
+      } catch (e) {
+        console.error('Access check failed:', e);
+      }
+    }
+
+    function handleAuthResponse(data) {
+      const allowed =
+        typeof data.allowed === 'boolean'
+          ? data.allowed
+          : (typeof data.isAgentforceUser === 'boolean' ? data.isAgentforceUser : false);
+
+      const userId = (data && 'userId' in data) ? (data.userId ?? null) : null;
+      AGENTFORCE_USER_ID = userId;
+
+      if (allowed) {
+        userAllowed = true;
+        console.log('User is allowed for Agentforce chat.', { userId });
+        // Eager init: preload the chat infrastructure now (iframe renders
+        // inside the hidden modal so the user won't see it yet).
+        if (!chatInitialized) {
+          initEmbeddedMessaging();
+          chatInitialized = true;
+        }
+      } else {
+        console.log('User not allowed for chat.', data);
+      }
+    }
+  </script>
+
+  <!-- Load Messaging bootstrap, then run the access check -->
+  <script
+    type="text/javascript"
+    src="https://bullhorn--uat.sandbox.my.site.com/ESWAgentforceEmbeddedDe1742299117809/assets/js/bootstrap.min.js"
+    onload="checkAgentforceAndMaybeInit()">
   </script>
 </body>
 </html>
