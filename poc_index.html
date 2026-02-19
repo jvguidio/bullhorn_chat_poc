@@ -397,6 +397,7 @@
        ================================================================== */
     let chatState        = 'idle';    // 'idle' | 'expanded' | 'minimized'
     let conversationActive = false;   // tracks if a conversation is in progress
+    let conversationEnded  = false;   // true after a conversation ends; triggers re-init on next open
     let chatInitialized  = false;     // true after initEmbeddedMessaging() is called
     let userAllowed      = false;     // true after auth/proxy says user can chat
     let pendingMessage   = null;      // message to auto-send once bot is ready
@@ -420,6 +421,44 @@
     }
 
     /* ==================================================================
+       RESET EMBEDDED MESSAGING
+       Tears down the old session so the next launchChat() starts a
+       brand-new conversation instead of reopening the ended one.
+       ================================================================== */
+    function resetEmbeddedMessaging() {
+      console.log('Resetting Embedded Messaging for a fresh conversation…');
+
+      // 1. Clear Salesforce embedded messaging entries from browser storage
+      //    (keys commonly prefixed with ESW, ESVC, embeddedservice, or the org/deployment id)
+      [sessionStorage, localStorage].forEach(store => {
+        const keysToRemove = [];
+        for (let i = 0; i < store.length; i++) {
+          const key = store.key(i);
+          if (/^(ESW|ESVC|embeddedservice|sfdc)/i.test(key)) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(k => store.removeItem(k));
+      });
+      sessionStorage.removeItem('agentforce:' + INTEGRATION_ID);
+
+      // 2. Clear the inline container to remove the stale iframe
+      const container = document.getElementById('agentforceInline');
+      if (container) container.innerHTML = '';
+
+      // 3. Reset framework-readiness flags
+      chatInitialized = false;
+      bootstrapReady  = false;
+      messagingReady  = false;
+      botReady        = false;
+      sendScheduled   = false;
+
+      // 4. Re-initialize Embedded Messaging (creates a fresh iframe + session)
+      initEmbeddedMessaging();
+      chatInitialized = true;
+    }
+
+    /* ==================================================================
        OPEN CHAT WITH A MESSAGE
        - Waits for bootstrapReady before calling launchChat()
        - Stores the message as pending and sends it once the bot is ready
@@ -428,6 +467,12 @@
       if (!userAllowed) {
         console.warn('User not allowed for Agentforce chat.');
         return;
+      }
+
+      // If a previous conversation ended, tear down and re-init first
+      if (conversationEnded) {
+        conversationEnded = false;
+        resetEmbeddedMessaging();
       }
 
       pendingMessage = text;
@@ -586,6 +631,7 @@
         console.error('Error ending conversation:', e);
       }
       conversationActive = false;
+      conversationEnded = true;
       botReady = false;
       userInitiatedOpen = false;
       setChatState('idle');
@@ -632,6 +678,7 @@
     window.addEventListener('onEmbeddedMessagingConversationClosed', () => {
       console.log('Conversation closed');
       conversationActive = false;
+      conversationEnded = true;
       botReady = false;
       userInitiatedOpen = false;
       setChatState('idle');
