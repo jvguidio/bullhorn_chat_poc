@@ -7,6 +7,7 @@
 <body>
   <h1>POC - Bullhorn Embedded Chat</h1>
   <p>Running as Jen Can</p>
+  <div id="agentforceInline" style="width:400px;height:600px;"></div>
 
   <script type="text/javascript">
     const PROXY_URL = 'https://bullhorn-agentforce-proxy.vercel.app/api/check-agentforce';
@@ -17,12 +18,18 @@
     function initEmbeddedMessaging() {
       try {
         embeddedservice_bootstrap.settings.language = 'en_US';
-        embeddedservice_bootstrap.settings.chatButtonPosition = "45px,20px";
+    
+        // 🚨 INLINE MODE
+        embeddedservice_bootstrap.settings.displayMode = 'inline';
+        embeddedservice_bootstrap.settings.targetElement = '#agentforceInline';
+    
         embeddedservice_bootstrap.init(
           '00DU9000004ImTh',
           'Agentforce_Embedded_Deployment',
           'https://bullhorn--uat.sandbox.my.site.com/ESWAgentforceEmbeddedDe1742299117809',
-          { scrt2URL: 'https://bullhorn--uat.sandbox.my.salesforce-scrt.com' }
+          {
+            scrt2URL: 'https://bullhorn--uat.sandbox.my.salesforce-scrt.com'
+          }
         );
       } catch (err) {
         console.error('Error loading Embedded Messaging:', err);
