@@ -1,77 +1,85 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="utf-8" />
   <title>POC - Bullhorn Embedded Chat (Serverless Token)</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 </head>
 <body>
   <h1>POC - Bullhorn Embedded Chat</h1>
   <p>Running as Jen Can</p>
 
   <script type="text/javascript">
-    // -------------------- Config --------------------
     const PROXY_URL = 'https://bullhorn-agentforce-proxy.vercel.app/api/check-agentforce';
     const INTEGRATION_ID = 'BH_7440523';
-    const ORG_ID = '00DU0000000YOky';
-    const DEPLOYMENT_NAME = 'Agentforce_Embedded_Deployment';
-    const MESSAGING_URL = 'https://bullhorn--uat.sandbox.my.site.com/ESWAgentforceEmbeddedDe1742299117809';
-    const SCRT2_URL = 'https://bullhorn--uat.sandbox.my.salesforce-scrt.com';
-
-    // Cache controls
-    const CACHE_KEY = `agentforce:${INTEGRATION_ID}`;
-    const CACHE_TTL_MS = 60 * 1000;
-
+    const SALESFORCE_INSTANCE_URL = 'https://bullhorn--uat.sandbox.my.salesforce.com';
     let AGENTFORCE_USER_ID = null;
 
-    // -------------------- sessionStorage cache helpers --------------------
-    function readCache() {
-      try {
-        const raw = sessionStorage.getItem(CACHE_KEY);
-        if (!raw) return null;
-        const { ts, data } = JSON.parse(raw);
-        if (typeof ts !== 'number' || !data) return null;
-
-        // TTL check (always enforced)
-        if (Date.now() - ts > CACHE_TTL_MS) {
-          sessionStorage.removeItem(CACHE_KEY);
-          return null;
-        }
-        return { ts, data };
-      } catch {
-        return null;
-      }
-    }
-
-    function writeCache(data) {
-      try {
-        const payload = { ts: Date.now(), data };
-        sessionStorage.setItem(CACHE_KEY, JSON.stringify(payload));
-
-        setTimeout(() => {
-          const current = readCache();
-          if (current) {
-            sessionStorage.removeItem(CACHE_KEY);
-            console.log('🧹 Cache purged by timer');
-          }
-        }, CACHE_TTL_MS);
-      } catch {
-        // ignore storage errors
-      }
-    }
-
-    // -------------------- Embedded Messaging bootstrap --------------------
     function initEmbeddedMessaging() {
       try {
         embeddedservice_bootstrap.settings.language = 'en_US';
         embeddedservice_bootstrap.settings.chatButtonPosition = "45px,20px";
-        embeddedservice_bootstrap.init(ORG_ID, DEPLOYMENT_NAME, MESSAGING_URL, { scrt2URL: SCRT2_URL });
+        embeddedservice_bootstrap.init(
+          '00DU9000004ImTh',
+          'Agentforce_Embedded_Deployment',
+          'https://bullhorn--uat.sandbox.my.site.com/ESWAgentforceEmbeddedDe1742299117809',
+          { scrt2URL: 'https://bullhorn--uat.sandbox.my.salesforce-scrt.com' }
+        );
       } catch (err) {
         console.error('Error loading Embedded Messaging:', err);
       }
     }
 
-    // Once Embedded Messaging is ready: hide the default button and set prechat hidden fields
+    async function checkAgentforceAndMaybeInit() {
+      try {
+        // Tenta cache em sessionStorage (expira em ~60s)
+        const cacheKey = `agentforce:${INTEGRATION_ID}`;
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          const { ts, data } = JSON.parse(cached);
+          if (Date.now() - ts < 60_000) {
+            console.log('♻️ Using cache for auth');
+            return handleAuthResponse(data);
+          }
+        }
+
+        const url = `${PROXY_URL}?integrationId=${encodeURIComponent(INTEGRATION_ID)}`;
+        const resp = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' } });
+
+        if (!resp.ok) {
+          const txt = await resp.text();
+          console.error('Proxy error:', resp.status, txt);
+          return;
+        }
+
+        const data = await resp.json();
+
+        // Salva no cache (com timestamp)
+        sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data }));
+
+        handleAuthResponse(data);
+      } catch (e) {
+        console.error('Access check failed:', e);
+      }
+    }
+
+    function handleAuthResponse(data) {
+      const allowed =
+        typeof data.allowed === 'boolean'
+          ? data.allowed
+          : (typeof data.isAgentforceUser === 'boolean' ? data.isAgentforceUser : false);
+
+      const userId = (data && 'userId' in data) ? (data.userId ?? null) : null;
+      AGENTFORCE_USER_ID = userId;
+
+      if (allowed) {
+        console.log('✅ Access OK. Initializing chat.', { userId });
+        initEmbeddedMessaging();
+      } else {
+        console.log('🚫 Not initializing chat.', data);
+      }
+    }
+
+    // Hide chat button & set hidden fields once Messaging is ready
     window.addEventListener('onEmbeddedMessagingReady', () => {
       try {
         embeddedservice_bootstrap.utilAPI.hideChatButton();
@@ -87,59 +95,9 @@
         console.error('Error in onEmbeddedMessagingReady:', e);
       }
     });
-
-    // -------------------- Main flow --------------------
-    function handleAuthResponse(data) {
-      const allowed =
-        typeof data?.allowed === 'boolean'
-          ? data.allowed
-          : (typeof data?.isAgentforceUser === 'boolean' ? data.isAgentforceUser : false);
-
-      const userId = (data && 'userId' in data) ? (data.userId ?? null) : null;
-      AGENTFORCE_USER_ID = userId;
-
-      if (allowed) {
-        console.log('✅ Access OK. Initializing chat.', { userId });
-        initEmbeddedMessaging();
-      } else {
-        console.log('🚫 Not initializing chat.', data);
-      }
-    }
-
-    async function checkAgentforceAndMaybeInit() {
-      try {
-        // 1) Try cache first
-        const cached = readCache();
-        if (cached) {
-          console.log('♻️ Using sessionStorage cache for authorization');
-          handleAuthResponse(cached.data);
-          return;
-        }
-
-        // 2) Call the proxy
-        const url = `${PROXY_URL}?integrationId=${encodeURIComponent(INTEGRATION_ID)}`;
-        const resp = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' } });
-
-        if (!resp.ok) {
-          const txt = await resp.text().catch(() => '');
-          console.error('Proxy error:', resp.status, txt);
-          return;
-        }
-
-        const data = await resp.json();
-
-        // 3) Save to cache
-        writeCache(data);
-
-        // 4) Proceed
-        handleAuthResponse(data);
-      } catch (e) {
-        console.error('Access check failed:', e);
-      }
-    }
   </script>
 
-  <!-- Load Messaging bootstrap, then kick off the auth check -->
+  <!-- Load Messaging bootstrap, then run the access check -->
   <script
     type="text/javascript"
     src="https://bullhorn--uat.sandbox.my.site.com/ESWAgentforceEmbeddedDe1742299117809/assets/js/bootstrap.min.js"
