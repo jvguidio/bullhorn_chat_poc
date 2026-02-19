@@ -672,6 +672,15 @@
     window.addEventListener('onEmbeddedMessagingConversationStarted', () => {
       console.log('Conversation started');
       conversationActive = true;
+
+      // If the user didn't initiate this, it's a resumed session from
+      // storage. The bot greeting was already sent in the original session
+      // so onEmbeddedMessagingFirstBotMessageSent won't fire again.
+      // Mark botReady so pending messages send immediately.
+      if (!userInitiatedOpen) {
+        botReady = true;
+      }
+
       if (userInitiatedOpen && chatState !== 'expanded') {
         setChatState('expanded');
       }
