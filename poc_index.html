@@ -510,7 +510,7 @@
        If the botReady event already fired, send immediately.
        Otherwise WAIT for the onEmbeddedMessagingFirstBotMessageSent event
        (which sets botReady and calls flushPendingMessage).
-       A long safety-net timeout (15 s) catches edge cases where the
+       A long safety-net timeout (3 s) catches edge cases where the
        event never fires.                                                  */
     function schedulePendingMessageSend() {
       if (!pendingMessage || sendScheduled) return;
@@ -523,7 +523,7 @@
         // Safety-net: if botReady event never fires, flush after 15 s
         setTimeout(() => {
           if (pendingMessage) {
-            console.log('15 s safety-net timeout reached — flushing pending message');
+            console.log('3 s safety-net timeout reached — flushing pending message');
             flushPendingMessage();
           }
         }, 15000);
@@ -546,7 +546,7 @@
        for error handling — a plain try/catch only catches sync throws. */
     function trySendMessage(msg, attempt) {
       const MAX_RETRIES = 5;
-      const RETRY_MS    = 1500;
+      const RETRY_MS    = 3000;
 
       try {
         const result = embeddedservice_bootstrap.utilAPI.sendTextMessage(msg);
