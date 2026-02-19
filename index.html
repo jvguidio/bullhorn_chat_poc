@@ -4,44 +4,53 @@
   <title>POC - Bullhorn Embedded Chat (Serverless Token)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
   <style>
-  /* Wrapper that behaves like a sticky footer */
-  #agentforceInlineWrapper {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 72px;
-    background: #ffffff;
-    border-top: 1px solid #e5e7eb;
-    box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
-    z-index: 9999;
+#agentforceInlineWrapper {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 72px;
+  background: #ffffff;
+  border-top: 1px solid #e5e7eb;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
+  z-index: 9999;
 
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-  /* This is where Messaging mounts */
-  #agentforceInline {
-    width: 720px;
-    max-width: 95%;
-    height: 48px;
-    border-radius: 10px;
-    overflow: hidden;
-  }
+  transition: height 0.25s ease;
+}
 
-  /* Prevent Messaging from going fullscreen inline */
-  #agentforceInline iframe {
-    width: 100% !important;
-    height: 100% !important;
-    border: none !important;
-    border-radius: 10px !important;
-  }
+/* 🔥 EXPANDED CHAT */
+#agentforceInlineWrapper.expanded {
+  height: 520px;
+}
 
-  /* Prevent page content from being hidden behind the bar */
-  body {
-    padding-bottom: 90px;
-  }
+#agentforceInline {
+  width: 720px;
+  max-width: 95%;
+  height: 48px;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: height 0.25s ease;
+}
+
+/* 🔥 MATCH IFRAME HEIGHT WHEN OPEN */
+#agentforceInlineWrapper.expanded #agentforceInline {
+  height: 100%;
+}
+
+#agentforceInline iframe {
+  width: 100% !important;
+  height: 100% !important;
+  border: none !important;
+  border-radius: 10px !important;
+}
+
+body {
+  padding-bottom: 540px;
+}
 </style>
 </head>
 <body>
@@ -144,6 +153,26 @@
       console.error('Error in onEmbeddedMessagingReady:', e);
     }
   });
+
+  window.addEventListener(
+  "onEmbeddedMessagingConversationOpened",
+  () => {
+    document
+      .getElementById("agentforceInlineWrapper")
+      .classList.add("expanded");
+  }
+);
+
+  window.addEventListener(
+  "onEmbeddedMessagingConversationClosed",
+  () => {
+    document
+      .getElementById("agentforceInlineWrapper")
+      .classList.remove("expanded");
+  }
+);
+
+
 
   </script>
 
