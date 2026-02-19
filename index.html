@@ -133,20 +133,18 @@
 
     // Hide chat button & set hidden fields once Messaging is ready
     window.addEventListener('onEmbeddedMessagingReady', () => {
-      try {
-        //embeddedservice_bootstrap.utilAPI.hideChatButton();
-        if (embeddedservice_bootstrap && embeddedservice_bootstrap.prechatAPI) {
-          embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
-            "Integration_Id": INTEGRATION_ID,
-            "Prechat_UserId": AGENTFORCE_USER_ID
-          });
-        } else {
-          console.error("Embedded Messaging API not initialized or unavailable.");
-        }
-      } catch (e) {
-        console.error('Error in onEmbeddedMessagingReady:', e);
+    try {
+      if (embeddedservice_bootstrap?.prechatAPI) {
+        embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
+          "Integration_Id": INTEGRATION_ID,
+          "Prechat_UserId": AGENTFORCE_USER_ID
+        });
       }
-    });
+    } catch (e) {
+      console.error('Error in onEmbeddedMessagingReady:', e);
+    }
+  });
+
   </script>
 
   <!-- Load Messaging bootstrap, then run the access check -->
