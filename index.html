@@ -287,6 +287,52 @@
       color: #181818;
     }
 
+    /* ---------- PENDING MESSAGE BANNER ---------- */
+    #pendingBanner {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      background: #eef6ff;
+      border-bottom: 1px solid #b8d4f0;
+      flex-shrink: 0;
+      font-size: 13px;
+      color: #032d60;
+    }
+
+    #pendingBanner.visible { display: flex; }
+
+    #pendingBanner .banner-label {
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    #pendingBanner .banner-text {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-style: italic;
+    }
+
+    #pendingBanner .banner-copy-btn {
+      padding: 4px 12px;
+      border: 1px solid #0176d3;
+      border-radius: 4px;
+      background: #fff;
+      color: #0176d3;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    #pendingBanner .banner-copy-btn:hover {
+      background: #0176d3;
+      color: #fff;
+    }
+
     /* ---------- INLINE CHAT TARGET ---------- */
     #agentforceInline {
       flex: 1;
@@ -376,6 +422,12 @@
           <button id="closeChat" title="Close">&times;</button>
         </div>
       </div>
+      <!-- Pending message banner -->
+      <div id="pendingBanner">
+        <span class="banner-label">Your message:</span>
+        <span class="banner-text" id="pendingBannerText"></span>
+        <button class="banner-copy-btn" id="pendingCopyBtn">Copy</button>
+      </div>
       <!-- Agentforce inline iframe target -->
       <div id="agentforceInline"></div>
     </div>
@@ -416,41 +468,50 @@
     const fakeInput   = document.getElementById('fakeInput');
     const fakeSendBtn = document.getElementById('fakeSendBtn');
 
-    // Opens modal and queues a message to be auto-sent into the chat.
-    // If this is the first interaction, initialize the embedded messaging first.
+    // Banner elements
+    const pendingBanner     = document.getElementById('pendingBanner');
+    const pendingBannerText = document.getElementById('pendingBannerText');
+    const pendingCopyBtn    = document.getElementById('pendingCopyBtn');
+
+    function showPendingBanner(text) {
+      pendingMessage = text;
+      pendingBannerText.textContent = text;
+      pendingBanner.classList.add('visible');
+    }
+
+    function hidePendingBanner() {
+      pendingBanner.classList.remove('visible');
+      pendingMessage = null;
+    }
+
+    // Copy pending message to clipboard
+    pendingCopyBtn.addEventListener('click', () => {
+      if (!pendingMessage) return;
+      navigator.clipboard.writeText(pendingMessage).then(() => {
+        pendingCopyBtn.textContent = 'Copied!';
+        setTimeout(() => { pendingCopyBtn.textContent = 'Copy'; }, 2000);
+      }).catch(() => {
+        // fallback: select-and-copy
+        const ta = document.createElement('textarea');
+        ta.value = pendingMessage;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        pendingCopyBtn.textContent = 'Copied!';
+        setTimeout(() => { pendingCopyBtn.textContent = 'Copy'; }, 2000);
+      });
+    });
+
+    // Opens modal, shows the pending banner, and lazily initializes chat.
     function openChatWithMessage(text) {
       if (!text) return;
-      pendingMessage = text;
+      showPendingBanner(text);
       setChatState('expanded');
 
       if (!chatInitialized && userAllowed) {
-        // First interaction — spin up the chat now
         initEmbeddedMessaging();
-        // The pending message will be sent from onEmbeddedMessagingReady
-      } else if (chatInitialized) {
-        trySendPendingMessage();
       }
-    }
-
-    // Retry sending the pending message via the Embedded Messaging API
-    // The iframe/chat may not be ready instantly, so we poll.
-    function trySendPendingMessage(attempt) {
-      if (!pendingMessage) return;
-      attempt = attempt || 1;
-      if (attempt > 20) {              // give up after ~6 s
-        console.warn('Could not auto-send message — chat API not ready.');
-        pendingMessage = null;
-        return;
-      }
-      try {
-        if (embeddedservice_bootstrap?.utilAPI?.sendTextMessage) {
-          embeddedservice_bootstrap.utilAPI.sendTextMessage(pendingMessage);
-          console.log('Auto-sent message:', pendingMessage);
-          pendingMessage = null;
-          return;
-        }
-      } catch (e) { /* not ready yet */ }
-      setTimeout(() => trySendPendingMessage(attempt + 1), 300);
     }
 
     // Only expand when user presses Enter or clicks Send (not on focus/click)
@@ -503,6 +564,7 @@
         console.error('Error ending conversation:', e);
       }
       conversationActive = false;
+      hidePendingBanner();
       setChatState('idle');
       // clear cached eligibility
       sessionStorage.removeItem('agentforce:' + INTEGRATION_ID);
@@ -525,6 +587,7 @@
        ================================================================== */
     window.addEventListener('onEmbeddedMessagingConversationStarted', () => {
       conversationActive = true;
+      hidePendingBanner();             // user sent the message — hide banner
       if (chatState !== 'expanded') {
         setChatState('expanded');
       }
@@ -532,6 +595,7 @@
 
     window.addEventListener('onEmbeddedMessagingConversationClosed', () => {
       conversationActive = false;
+      hidePendingBanner();
       setChatState('idle');
     });
 
@@ -545,10 +609,6 @@
         }
       } catch (e) {
         console.error('Error in onEmbeddedMessagingReady:', e);
-      }
-      // If there's a queued message from the idle bar, try sending it now
-      if (pendingMessage) {
-        trySendPendingMessage();
       }
     });
 
