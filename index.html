@@ -394,6 +394,7 @@
        ================================================================== */
     let chatState = 'idle';            // 'idle' | 'expanded' | 'minimized'
     let conversationActive = false;    // tracks if a conversation is in progress
+    let pendingMessage = null;         // message queued from idle bar / chip
 
     function setChatState(newState) {
       chatState = newState;
@@ -413,14 +414,41 @@
     const fakeInput   = document.getElementById('fakeInput');
     const fakeSendBtn = document.getElementById('fakeSendBtn');
 
+    // Opens modal and queues a message to be auto-sent into the chat
+    function openChatWithMessage(text) {
+      if (!text) return;
+      pendingMessage = text;
+      setChatState('expanded');
+      trySendPendingMessage();
+    }
+
+    // Retry sending the pending message via the Embedded Messaging API
+    // The iframe/chat may not be ready instantly, so we poll.
+    function trySendPendingMessage(attempt) {
+      if (!pendingMessage) return;
+      attempt = attempt || 1;
+      if (attempt > 20) {              // give up after ~6 s
+        console.warn('Could not auto-send message — chat API not ready.');
+        pendingMessage = null;
+        return;
+      }
+      try {
+        if (embeddedservice_bootstrap?.utilAPI?.sendTextMessage) {
+          embeddedservice_bootstrap.utilAPI.sendTextMessage(pendingMessage);
+          console.log('Auto-sent message:', pendingMessage);
+          pendingMessage = null;
+          return;
+        }
+      } catch (e) { /* not ready yet */ }
+      setTimeout(() => trySendPendingMessage(attempt + 1), 300);
+    }
+
     // Only expand when user presses Enter or clicks Send (not on focus/click)
     function submitIdleInput() {
       const text = fakeInput.value.trim();
       if (!text) return;               // ignore empty
       fakeInput.value = '';
-      setChatState('expanded');
-      // TODO: if Embedded Messaging API supports sending a message
-      // programmatically, send `text` here.
+      openChatWithMessage(text);
     }
 
     fakeInput.addEventListener('keydown', (e) => {
@@ -437,9 +465,8 @@
 
     document.querySelectorAll('.chip').forEach(chip => {
       chip.addEventListener('click', () => {
-        setChatState('expanded');
-        // TODO: if Embedded Messaging API supports sending a message
-        // programmatically, send the chip's data-text here.
+        const text = chip.getAttribute('data-text');
+        openChatWithMessage(text);
       });
     });
 
@@ -508,6 +535,10 @@
         }
       } catch (e) {
         console.error('Error in onEmbeddedMessagingReady:', e);
+      }
+      // If there's a queued message from the idle bar, try sending it now
+      if (pendingMessage) {
+        trySendPendingMessage();
       }
     });
 
