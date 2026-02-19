@@ -395,6 +395,8 @@
     let chatState = 'idle';            // 'idle' | 'expanded' | 'minimized'
     let conversationActive = false;    // tracks if a conversation is in progress
     let pendingMessage = null;         // message queued from idle bar / chip
+    let chatInitialized = false;       // true after initEmbeddedMessaging() is called
+    let userAllowed = false;           // result from the auth/proxy check
 
     function setChatState(newState) {
       chatState = newState;
@@ -414,12 +416,20 @@
     const fakeInput   = document.getElementById('fakeInput');
     const fakeSendBtn = document.getElementById('fakeSendBtn');
 
-    // Opens modal and queues a message to be auto-sent into the chat
+    // Opens modal and queues a message to be auto-sent into the chat.
+    // If this is the first interaction, initialize the embedded messaging first.
     function openChatWithMessage(text) {
       if (!text) return;
       pendingMessage = text;
       setChatState('expanded');
-      trySendPendingMessage();
+
+      if (!chatInitialized && userAllowed) {
+        // First interaction — spin up the chat now
+        initEmbeddedMessaging();
+        // The pending message will be sent from onEmbeddedMessagingReady
+      } else if (chatInitialized) {
+        trySendPendingMessage();
+      }
     }
 
     // Retry sending the pending message via the Embedded Messaging API
@@ -546,6 +556,8 @@
        INIT EMBEDDED MESSAGING  (inline mode v2)
        ================================================================== */
     function initEmbeddedMessaging() {
+      if (chatInitialized) return;     // prevent double-init
+      chatInitialized = true;
       try {
         embeddedservice_bootstrap.settings.language = 'en_US';
         embeddedservice_bootstrap.settings.displayMode = 'inline';
@@ -560,6 +572,7 @@
         );
       } catch (err) {
         console.error('Error loading Embedded Messaging:', err);
+        chatInitialized = false;       // allow retry on failure
       }
     }
 
@@ -605,10 +618,13 @@
       AGENTFORCE_USER_ID = userId;
 
       if (allowed) {
-        console.log('Access OK. Initializing chat.', { userId });
-        initEmbeddedMessaging();
+        // Store the auth result but do NOT init chat yet.
+        // Chat will be initialized lazily on first user interaction.
+        userAllowed = true;
+        console.log('Access OK. Chat will initialize on first interaction.', { userId });
       } else {
-        console.log('Not initializing chat.', data);
+        userAllowed = false;
+        console.log('Not allowed for chat.', data);
       }
     }
   </script>
