@@ -15,23 +15,12 @@
       padding-bottom: 90px;
     }
 
-    /* ===================================================================
-       HIDE the default Salesforce floating chat button & container
-       until WE decide to show it via launchChat().
-       =================================================================== */
-    .embeddedServiceHelpButton,
-    .embedded-service,
-    .embeddedMessagingFrame,
-    .embeddedMessagingConversationButtonWrapper {
-      display: none !important;
-    }
-
-    /* Once we launch the chat, show the Salesforce container */
-    body.chat-expanded .embeddedServiceHelpButton,
-    body.chat-expanded .embedded-service,
-    body.chat-expanded .embeddedMessagingFrame {
-      display: block !important;
-    }
+    /*
+     * NOTE: We do NOT use CSS display:none to hide Salesforce elements.
+     * That breaks internal initialization. Instead we rely on
+     * hideChatButtonOnLoad = true (hides the FAB button) and
+     * launchChat() to open the chat programmatically.
+     */
 
     /* ===================================================================
        BOTTOM BAR  (visible in idle + minimized states)
@@ -300,6 +289,22 @@
        2. Wait 3 seconds for chat to fully initialize
        3. Call sendTextMessage() with the queued message
        ================================================================== */
+    // Try sending the message with retries (every 2s, up to 5 attempts)
+    function trySendMessage(msg, attempt) {
+      attempt = attempt || 1;
+      console.log('sendTextMessage attempt', attempt, ':', msg);
+      embeddedservice_bootstrap.utilAPI.sendTextMessage(msg)
+        .then(() => {
+          console.log('Message sent successfully:', msg);
+        })
+        .catch((err) => {
+          console.warn('sendTextMessage attempt', attempt, 'failed:', err);
+          if (attempt < 5) {
+            setTimeout(() => trySendMessage(msg, attempt + 1), 2000);
+          }
+        });
+    }
+
     function launchChatAndSendMessage(message) {
       pendingMessage = message;
       setChatState('expanded');
@@ -310,38 +315,26 @@
 
         embeddedservice_bootstrap.utilAPI.launchChat()
           .then(() => {
-            console.log('Chat launched. Waiting 3s before sending message...');
-            // Wait 3 seconds for the chat to fully load
+            console.log('Chat launched. Waiting 5s before sending message...');
+            // Wait 5 seconds for the chat session to fully connect
             setTimeout(() => {
               if (pendingMessage) {
                 const msg = pendingMessage;
                 pendingMessage = null;
-                embeddedservice_bootstrap.utilAPI.sendTextMessage(msg)
-                  .then(() => {
-                    console.log('Message sent successfully:', msg);
-                  })
-                  .catch((err) => {
-                    console.warn('sendTextMessage failed:', err);
-                  });
+                trySendMessage(msg);
               }
-            }, 3000);
+            }, 5000);
           })
           .catch((err) => {
             console.error('launchChat failed:', err);
             chatLaunched = false;
           });
       } else {
-        // Chat already launched — just send the message directly
+        // Chat already launched — send directly with retry
         if (pendingMessage) {
           const msg = pendingMessage;
           pendingMessage = null;
-          embeddedservice_bootstrap.utilAPI.sendTextMessage(msg)
-            .then(() => {
-              console.log('Message sent:', msg);
-            })
-            .catch((err) => {
-              console.warn('sendTextMessage failed:', err);
-            });
+          trySendMessage(msg);
         }
       }
     }
@@ -388,6 +381,17 @@
     /* ==================================================================
        EMBEDDED MESSAGING EVENTS
        ================================================================== */
+    // When bot sends its first message, the chat is truly ready
+    window.addEventListener('onEmbeddedMessagingFirstBotMessageSent', () => {
+      console.log('Bot ready (first bot message sent)');
+      // If we still have a pending message, send it now
+      if (pendingMessage) {
+        const msg = pendingMessage;
+        pendingMessage = null;
+        trySendMessage(msg);
+      }
+    });
+
     window.addEventListener('onEmbeddedMessagingConversationStarted', () => {
       console.log('Conversation started');
       conversationActive = true;
