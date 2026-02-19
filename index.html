@@ -134,7 +134,7 @@
     // Hide chat button & set hidden fields once Messaging is ready
     window.addEventListener('onEmbeddedMessagingReady', () => {
       try {
-        embeddedservice_bootstrap.utilAPI.hideChatButton();
+        //embeddedservice_bootstrap.utilAPI.hideChatButton();
         if (embeddedservice_bootstrap && embeddedservice_bootstrap.prechatAPI) {
           embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
             "Integration_Id": INTEGRATION_ID,
