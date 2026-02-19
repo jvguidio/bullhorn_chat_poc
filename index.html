@@ -62,10 +62,10 @@
   border-radius: 10px !important;
 }
 
-/* COLLAPSED = hide transcript */
 #agentforceInlineWrapper:not(.expanded) iframe {
-  transform: translateY(calc(100% - 48px));
-  pointer-events: none;
+  transform: translateY(calc(100% - 48px)) !important;
+  pointer-events: none !important;
+  transition: transform 0.25s ease;
 }
 
 body {
@@ -180,12 +180,18 @@ body {
       console.error('Error in onEmbeddedMessagingReady:', e);
     }
   });
-window.addEventListener(
-  "onEmbeddedMessagingMessageSent",
+
+    window.addEventListener(
+  "onEmbeddedMessagingConversationStarted",
   () => {
+    document
+      .getElementById("agentforceInlineWrapper")
+      .classList.add("expanded");
+
     document.body.style.overflow = "hidden";
   }
 );
+
 
 window.addEventListener(
   "onEmbeddedMessagingConversationClosed",
@@ -213,17 +219,6 @@ document
 
     document.body.style.overflow = "";
   });
-
-
-    window.addEventListener(
-  "onEmbeddedMessagingMessageSent",
-  () => {
-    document
-      .getElementById("agentforceInlineWrapper")
-      .classList.add("expanded");
-  }
-);
-
 
 document
   .getElementById("closeChat")
