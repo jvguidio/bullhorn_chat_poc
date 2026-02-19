@@ -1,150 +1,262 @@
+<!doctype html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Chat Input Example</title>
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                background-color: #f7f8fa;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-                margin: 0;
-            }
-            .chat-container {
-                background: #fff;
-                border: 1px solid #ddd;
-                border-radius: 10px;
-                width: 400px;
-                padding: 16px;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-                display: flex;
-                flex-direction: column;
-            }
-            .chat-input-area {
-                display: flex;
-                border: 1px solid #ccc;
-                border-radius: 20px;
-                padding: 8px 12px;
-                background: #f1f1f1;
-            }
-            .chat-input {
-                flex: 1;
-                border: none;
-                background: transparent;
-                outline: none;
-                font-size: 16px;
-                padding: 6px;
-            }
-            .send-button {
-                background-color: #0078ff;
-                border: none;
-                color: white;
-                border-radius: 50%;
-                width: 36px;
-                height: 36px;
-                cursor: pointer;
-                font-size: 16px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                transition: background 0.2s;
-            }
-            .send-button:hover {
-                background-color: #005fd1;
-            } /* --- CSS for Styling the Button --- */
-            .send-message-button {
-                /* Background and Dimensions */
-                background-color: #00008b; /* A deep blue, similar to the image */
-                color: white; /* White text */
-                padding: 15px 30px; /* Padding for height and width */
-                font-size: 18px; /* Readable text size */
-                font-weight: bold;
-                cursor: pointer; /* Changes mouse to a pointer on hover */
-                border: none; /* Remove default button border */
-                display: inline-block; /* Allows setting padding/margin */
-                text-align: center;
-                border-radius: 5px; /* Slight rounding of corners */ /* The White Border/Outline Effect */
-                box-shadow: 0 0 0 2px white; /* A 2px white "stroke" */
-                outline: 2px solid #00008b; /* Helps create the gap/depth effect */
-            }
-            .send-message-button:hover {
-                background-color: #0000a0; /* Slightly lighter blue on hover */
-            }
-        </style>
-        <script type="text/javascript">
-            function initEmbeddedMessaging() { try { embeddedservice_bootstrap.settings.language = 'en_US'; // For example, enter 'en' or 'en-US' // Hiding Chat Button on page load embeddedservice_bootstrap.settings.hideChatButtonOnLoad = true; /* START:: Conversation Opened Listener */ window.addEventListener("onEmbeddedMessagingConversationOpened", (event) => { hideChatContainer(); }); /* END:: Conversation Opened Listener */ /* START:: Conversation Closed Listener */ window.addEventListener("onEmbeddedMessagingWindowClosed", (event) => { showChatContainer(); }); /* END:: Conversation Closed Listener */ /* START:: Button Created Listener */ window.addEventListener("onEmbeddedMessagingButtonCreated", (event) => { showChatContainer(); }); /* END:: Button Created Listener */ embeddedservice_bootstrap.init( '00DU9000004ImTh', 'Agentforce_Embedded_Deployment_Enhanced_v2', 'https://bullhorn--uat.sandbox.my.site.com/ESWAgentforceEmbeddedDe1771534884280', { scrt2URL: 'https://bullhorn--uat.sandbox.my.salesforce-scrt.com' } ); } catch (err) { console.error('Error loading Embedded Messaging: ', err); } }
-        </script>
-        <script
-            type="text/javascript"
-            src="https://bullhorn--uat.sandbox.my.site.com/ESWAgentforceEmbeddedDe1771534884280/assets/js/bootstrap.min.js"
-            onload="initEmbeddedMessaging()"
-        ></script>
-    </head>
-    <body>
-        <div class="chat-container">
-            <div>Welcome to our Chat!!! <br /><br /><br /></div>
-            <div class="chat-input-area">
-                <input type="text" id="chatInput" class="chat-input" placeholder="Type a message..." />
-                <button class="send-button" id="sendBtn">➤</button>
-            </div>
-            <div>
-                <br /><br />
-                <button class="send-message-button" id="orderButton">Need help with my Order</button> <br /><br />
-                <button class="send-message-button" id="caseButton">Need help with my Case</button>
-            </div>
-        </div>
-        <script>
-  // --- Gate utilAPI + messaging readiness with Promises ---
-  const utilApiAvailable = new Promise((resolve) => {
-    window.addEventListener("onEmbeddedMessagingButtonCreated", resolve, { once: true });
-  });
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chat Input Example</title>
 
-  const messagingReady = new Promise((resolve) => {
-    window.addEventListener("onEmbeddedMessagingReady", resolve, { once: true });
-  });
-
-  async function launchChatSafely() {
-    // utilAPI isn’t usable until the button is created
-    await utilApiAvailable;
-    return embeddedservice_bootstrap.utilAPI.launchChat();
-  }
-
-  async function sendMessageSafely(message) {
-    // sending messages requires messaging ready
-    await messagingReady;
-    return embeddedservice_bootstrap.utilAPI.sendTextMessage(message);
-  }
-
-  async function launchAndSend(message) {
-    try {
-      hideChatContainer();
-      await launchChatSafely();
-      await sendMessageSafely(message);
-      console.log("Chat launched and message sent");
-    } catch (e) {
-      console.error("Launch/send failed:", e);
-      showChatContainer(); // optional: show your UI again on failure
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f7f8fa;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
     }
-  }
 
-  // Your existing button handlers become:
-  sendBtn.addEventListener("click", () => {
-    const message = chatInput.value.trim();
-    if (!message) return alert("Please enter a message first!");
-    chatInput.value = "";
-    launchAndSend(message);
-  });
+    .chat-container {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      width: 400px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      display: none; /* start hidden; we show only after button-created */
+      flex-direction: column;
+    }
 
-  orderButton.addEventListener("click", () => {
-    launchAndSend(orderButton.textContent.trim());
-  });
+    .chat-input-area {
+      display: flex;
+      border: 1px solid #ccc;
+      border-radius: 20px;
+      padding: 8px 12px;
+      background: #f1f1f1;
+    }
 
-  caseButton.addEventListener("click", () => {
-    launchAndSend(caseButton.textContent.trim());
-  });
-</script>
-    </body>
+    .chat-input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: 16px;
+      padding: 6px;
+    }
+
+    .send-button {
+      background-color: #0078ff;
+      border: none;
+      color: white;
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+
+    .send-button:hover {
+      background-color: #005fd1;
+    }
+
+    /* --- CSS for Styling the Button --- */
+    .send-message-button {
+      background-color: #00008b;
+      color: white;
+      padding: 15px 30px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+      display: inline-block;
+      text-align: center;
+      border-radius: 5px;
+
+      box-shadow: 0 0 0 2px white;
+      outline: 2px solid #00008b;
+    }
+
+    .send-message-button:hover {
+      background-color: #0000a0;
+    }
+  </style>
+
+  <script type="text/javascript">
+    /**
+     * Embedded Messaging lifecycle state
+     *
+     * - onEmbeddedMessagingButtonCreated: utilAPI.launchChat is allowed
+     * - onEmbeddedMessagingReady: utilAPI.sendTextMessage is allowed
+     */
+    let messagingButtonReady = false;
+    let messagingReady = false;
+    let pendingMessageQueue = [];
+
+    function showChatContainer() {
+      const chatContainer = document.querySelector(".chat-container");
+      chatContainer.style.display = "block";
+    }
+
+    function hideChatContainer() {
+      const chatContainer = document.querySelector(".chat-container");
+      chatContainer.style.display = "none";
+    }
+
+    function flushPendingMessages() {
+      if (!messagingReady) return;
+      if (!window.embeddedservice_bootstrap?.utilAPI?.sendTextMessage) return;
+
+      // Send in order
+      const toSend = [...pendingMessageQueue];
+      pendingMessageQueue = [];
+
+      // chain sends to preserve order
+      toSend.reduce((p, msg) => {
+        return p
+          .then(() => embeddedservice_bootstrap.utilAPI.sendTextMessage(msg))
+          .then(() => console.log("Message sent:", msg))
+          .catch((err) => console.error("Message send failed:", err));
+      }, Promise.resolve());
+    }
+
+    function launchChatWithMessage(message) {
+      const msg = (message || "").trim();
+      if (!msg) return;
+
+      // Queue message always; we’ll send once onEmbeddedMessagingReady fires
+      pendingMessageQueue.push(msg);
+
+      if (!messagingButtonReady || !window.embeddedservice_bootstrap?.utilAPI?.launchChat) {
+        console.log("Messaging button not ready yet; message queued.");
+        return;
+      }
+
+      // Optionally hide your container immediately
+      hideChatContainer();
+
+      embeddedservice_bootstrap.utilAPI
+        .launchChat()
+        .then(() => {
+          console.log("launchChat() invoked");
+          // Do NOT send here; wait for onEmbeddedMessagingReady
+        })
+        .catch((err) => {
+          console.error("Launch failed:", err);
+          // If launch fails, bring UI back so user can retry
+          showChatContainer();
+        });
+    }
+
+    function initEmbeddedMessaging() {
+      try {
+        embeddedservice_bootstrap.settings.language = "en_US";
+
+        // Keep as you had it; we will show our custom container when SDK button is created
+        embeddedservice_bootstrap.settings.hideChatButtonOnLoad = true;
+
+        // Conversation opened -> hide your container (optional)
+        window.addEventListener("onEmbeddedMessagingConversationOpened", () => {
+          hideChatContainer();
+        });
+
+        // Conversation closed -> show your container again (optional)
+        window.addEventListener("onEmbeddedMessagingWindowClosed", () => {
+          showChatContainer();
+        });
+
+        // Deployment button created -> now utilAPI.launchChat is allowed
+        window.addEventListener("onEmbeddedMessagingButtonCreated", () => {
+          messagingButtonReady = true;
+          console.log("onEmbeddedMessagingButtonCreated fired");
+          showChatContainer();
+        });
+
+        // Messaging runtime ready -> now utilAPI.sendTextMessage is allowed
+        window.addEventListener("onEmbeddedMessagingReady", () => {
+          messagingReady = true;
+          console.log("onEmbeddedMessagingReady fired");
+          flushPendingMessages();
+        });
+
+        embeddedservice_bootstrap.init(
+          "00DU9000004ImTh",
+          "Agentforce_Embedded_Deployment_Enhanced_v2",
+          "https://bullhorn--uat.sandbox.my.site.com/ESWAgentforceEmbeddedDe1771534884280",
+          {
+            scrt2URL: "https://bullhorn--uat.sandbox.my.salesforce-scrt.com",
+          }
+        );
+      } catch (err) {
+        console.error("Error loading Embedded Messaging:", err);
+      }
+    }
+  </script>
+
+  <script
+    type="text/javascript"
+    src="https://bullhorn--uat.sandbox.my.site.com/ESWAgentforceEmbeddedDe1771534884280/assets/js/bootstrap.min.js"
+    onload="initEmbeddedMessaging()"
+  ></script>
+</head>
+
+<body>
+  <div class="chat-container">
+    <div>
+      Welcome to our Chat!!!
+      <br /><br /><br />
+    </div>
+
+    <div class="chat-input-area">
+      <input
+        type="text"
+        id="chatInput"
+        class="chat-input"
+        placeholder="Type a message..."
+      />
+      <button class="send-button" id="sendBtn" aria-label="Send">➤</button>
+    </div>
+
+    <div>
+      <br /><br />
+      <button class="send-message-button" id="orderButton">
+        Need help with my Order
+      </button>
+      <br /><br />
+      <button class="send-message-button" id="caseButton">
+        Need help with my Case
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const sendBtn = document.getElementById("sendBtn");
+    const chatInput = document.getElementById("chatInput");
+    const orderButton = document.getElementById("orderButton");
+    const caseButton = document.getElementById("caseButton");
+
+    sendBtn.addEventListener("click", () => {
+      const message = chatInput.value.trim();
+      if (!message) return alert("Please enter a message first!");
+
+      chatInput.value = "";
+      launchChatWithMessage(message);
+    });
+
+    chatInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") sendBtn.click();
+    });
+
+    orderButton.addEventListener("click", () => {
+      launchChatWithMessage(orderButton.textContent.trim());
+    });
+
+    caseButton.addEventListener("click", () => {
+      launchChatWithMessage(caseButton.textContent.trim());
+    });
+  </script>
+</body>
 </html>
