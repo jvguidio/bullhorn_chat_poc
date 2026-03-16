@@ -334,8 +334,8 @@
 
   <!-- ============ PAGE CONTENT (demo) ============ -->
   <div class="page-content">
-    <h1>POC - Inline Chat</h1>
-    <p>Running as Jen Can (Bullhorn UAT - Sophia Enhanced V2 Test)</p>
+    <h1>POC - Bullhorn Embedded Chat</h1>
+    <p>Running as Jen Can</p>
   </div>
 
   <!-- ============ BOTTOM BAR (idle + minimized) ============ -->
@@ -464,8 +464,17 @@
        - Stores the message as pending and sends it once the bot is ready
        ================================================================== */
     function openChatWithMessage(text) {
+      console.group('[CHAT] openChatWithMessage');
+      console.log('[CHAT] text:', text);
+      console.log('[CHAT] State dump:', {
+        userAllowed, chatInitialized, bootstrapReady,
+        messagingReady, botReady, chatState,
+        conversationActive, conversationEnded
+      });
       if (!userAllowed) {
-        console.warn('User not allowed for Agentforce chat.');
+        console.warn('[CHAT] BLOCKED — userAllowed is false. Auth may have failed or returned disallowed.');
+        console.warn('[CHAT] Check [AUTH] logs above for details on why the user was not allowed.');
+        console.groupEnd();
         return;
       }
 
@@ -510,7 +519,7 @@
        If the botReady event already fired, send immediately.
        Otherwise WAIT for the onEmbeddedMessagingFirstBotMessageSent event
        (which sets botReady and calls flushPendingMessage).
-       A long safety-net timeout (3 s) catches edge cases where the
+       A long safety-net timeout (15 s) catches edge cases where the
        event never fires.                                                  */
     function schedulePendingMessageSend() {
       if (!pendingMessage || sendScheduled) return;
@@ -523,7 +532,7 @@
         // Safety-net: if botReady event never fires, flush after 15 s
         setTimeout(() => {
           if (pendingMessage) {
-            console.log('3 s safety-net timeout reached — flushing pending message');
+            console.log('15 s safety-net timeout reached — flushing pending message');
             flushPendingMessage();
           }
         }, 15000);
@@ -546,7 +555,7 @@
        for error handling — a plain try/catch only catches sync throws. */
     function trySendMessage(msg, attempt) {
       const MAX_RETRIES = 5;
-      const RETRY_MS    = 1000;
+      const RETRY_MS    = 1500;
 
       try {
         const result = embeddedservice_bootstrap.utilAPI.sendTextMessage(msg);
@@ -656,7 +665,7 @@
        ================================================================== */
 
     /* Bot sent its first message → chat is truly ready to receive user input.
-       If this fires BEFORE the 1 s timeout, the message is sent immediately
+       If this fires BEFORE the 3 s timeout, the message is sent immediately
        (fast-path). Otherwise the timeout handles it.                        */
     window.addEventListener('onEmbeddedMessagingFirstBotMessageSent', () => {
       console.log('Bot ready (first bot message received)');
@@ -764,55 +773,114 @@
        sends their first message.
        ================================================================== */
     async function checkAgentforceAndMaybeInit() {
+      console.group('[AUTH] checkAgentforceAndMaybeInit');
+      console.log('[AUTH] PROXY_URL:', PROXY_URL);
+      console.log('[AUTH] INTEGRATION_ID:', INTEGRATION_ID);
       try {
         const cacheKey = 'agentforce:' + INTEGRATION_ID;
         const cached = sessionStorage.getItem(cacheKey);
         if (cached) {
+          console.log('[AUTH] Found cached entry, raw:', cached);
           const { ts, data } = JSON.parse(cached);
-          if (Date.now() - ts < 60000) {
-            console.log('Using cache for auth');
-            return handleAuthResponse(data);
+          const age = Date.now() - ts;
+          console.log('[AUTH] Cache age:', age, 'ms (max 60000)');
+          if (age < 60000) {
+            console.log('[AUTH] Using cached data:', JSON.stringify(data, null, 2));
+            handleAuthResponse(data);
+            console.groupEnd();
+            return;
+          } else {
+            console.log('[AUTH] Cache expired, fetching fresh');
           }
+        } else {
+          console.log('[AUTH] No cached entry found');
         }
 
         const url = PROXY_URL + '?integrationId=' + encodeURIComponent(INTEGRATION_ID);
+        console.log('[AUTH] Fetching:', url);
+
         const resp = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' } });
+        console.log('[AUTH] Response status:', resp.status, resp.statusText);
+        console.log('[AUTH] Response headers:', Object.fromEntries([...resp.headers.entries()]));
 
         if (!resp.ok) {
           const txt = await resp.text();
-          console.error('Proxy error:', resp.status, txt);
+          console.error('[AUTH] Proxy returned non-OK. Status:', resp.status, 'Body:', txt);
+          console.groupEnd();
           return;
         }
 
-        const data = await resp.json();
+        const rawText = await resp.text();
+        console.log('[AUTH] Raw response body:', rawText);
+
+        let data;
+        try {
+          data = JSON.parse(rawText);
+        } catch (parseErr) {
+          console.error('[AUTH] Failed to parse response as JSON:', parseErr);
+          console.groupEnd();
+          return;
+        }
+
+        console.log('[AUTH] Parsed response data:', JSON.stringify(data, null, 2));
+        console.log('[AUTH] data type:', typeof data);
+        console.log('[AUTH] data keys:', data ? Object.keys(data) : 'N/A');
+
         sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data }));
         handleAuthResponse(data);
       } catch (e) {
-        console.error('Access check failed:', e);
+        console.error('[AUTH] Access check failed:', e.message, e);
       }
+      console.groupEnd();
     }
 
     function handleAuthResponse(data) {
+      console.group('[AUTH] handleAuthResponse');
+      console.log('[AUTH] Full data received:', JSON.stringify(data, null, 2));
+      console.log('[AUTH] typeof data:', typeof data);
+      console.log('[AUTH] data is null?', data === null);
+      console.log('[AUTH] data is array?', Array.isArray(data));
+
+      if (data && typeof data === 'object') {
+        console.log('[AUTH] All keys:', Object.keys(data));
+        console.log('[AUTH] data.allowed:', data.allowed, '(type:', typeof data.allowed + ')');
+        console.log('[AUTH] data.isAgentforceUser:', data.isAgentforceUser, '(type:', typeof data.isAgentforceUser + ')');
+        console.log('[AUTH] data.userId:', data.userId, '(type:', typeof data.userId + ')');
+        console.log('[AUTH] "allowed" in data:', 'allowed' in data);
+        console.log('[AUTH] "isAgentforceUser" in data:', 'isAgentforceUser' in data);
+        console.log('[AUTH] "userId" in data:', 'userId' in data);
+      }
+
       const allowed =
         typeof data.allowed === 'boolean'
           ? data.allowed
           : (typeof data.isAgentforceUser === 'boolean' ? data.isAgentforceUser : false);
 
+      console.log('[AUTH] Computed allowed:', allowed);
+      console.log('[AUTH] Decision path:',
+        typeof data.allowed === 'boolean'
+          ? 'used data.allowed (' + data.allowed + ')'
+          : typeof data.isAgentforceUser === 'boolean'
+            ? 'used data.isAgentforceUser (' + data.isAgentforceUser + ')'
+            : 'neither field found — defaulted to false'
+      );
+
       const userId = (data && 'userId' in data) ? (data.userId ?? null) : null;
       AGENTFORCE_USER_ID = userId;
+      console.log('[AUTH] Resolved userId:', userId);
 
       if (allowed) {
         userAllowed = true;
-        console.log('User is allowed for Agentforce chat.', { userId });
-        // Eager init: preload the chat infrastructure now (iframe renders
-        // inside the hidden modal so the user won't see it yet).
+        console.log('[AUTH] *** USER ALLOWED *** Initializing chat. userId:', userId);
         if (!chatInitialized) {
           initEmbeddedMessaging();
           chatInitialized = true;
         }
       } else {
-        console.log('User not allowed for chat.', data);
+        console.warn('[AUTH] *** USER NOT ALLOWED *** Chat will not initialize.');
+        console.warn('[AUTH] To fix: proxy must return { allowed: true } or { isAgentforceUser: true }');
       }
+      console.groupEnd();
     }
   </script>
 
